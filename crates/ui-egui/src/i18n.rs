@@ -609,6 +609,7 @@ mod tests {
         assert_eq!(Language::Fr.tr("Sheet1!A1"), "Sheet1!A1");
         assert_eq!(Language::It.tr("Data"), "Dati");
         assert_eq!(Language::It.tr("Freeze Panes"), "Blocca riquadri");
+        assert_eq!(Language::It.tr("Page Layout|Orientation"), "Orientamento");
         assert_eq!(Language::It.tr("Sheet1!A1"), "Sheet1!A1");
         assert_eq!(Language::PtBr.tr("Date"), "Data");
         assert_eq!(Language::PtBr.tr("Sheet1!A1"), "Sheet1!A1");

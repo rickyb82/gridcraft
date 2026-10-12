@@ -286,7 +286,9 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Web Page (.html)" => "Pagina Web (.html)",
         "Save the workbook as a web page." => "Salva la cartella di lavoro come pagina Web.",
         "Save the workbook under another name or in another folder." => "Salva la cartella di lavoro con un altro nome o in un'altra cartella.",
-        "A CSV file, web page or PDF is a copy: the workbook keeps its own file." => "Un file CSV, una pagina Web o un PDF sono copie: la cartella di lavoro mantiene il proprio file.",
+        "A CSV file, web page or PDF is a copy: the workbook keeps its own file." => {
+            "Un file CSV, una pagina Web o un PDF sono copie: la cartella di lavoro mantiene il proprio file."
+        }
         "Options|General" => "Generale",
         "Options|Save" => "Salvataggio",
         "Show formula bar" => "Mostra barra della formula",
@@ -294,9 +296,15 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Workbook calculation" => "Calcolo cartella di lavoro",
         "Enable iterative calculation" => "Attiva calcolo iterativo",
         "Calculation settings are saved with the workbook." => "Le impostazioni di calcolo vengono salvate con la cartella di lavoro.",
-        "Glide the selection outline to the cell you move to instead of jumping there" => "Fai scorrere il contorno della selezione fino alla cella di destinazione invece di saltarci",
-        "Sheet structure is locked: sheets can't be added, moved, renamed or deleted." => "La struttura è bloccata: non è possibile aggiungere, spostare, rinominare o eliminare fogli.",
-        "Lock the sheet structure so sheets can't be added, moved, renamed or deleted." => "Blocca la struttura in modo che non si possano aggiungere, spostare, rinominare o eliminare fogli.",
+        "Glide the selection outline to the cell you move to instead of jumping there" => {
+            "Fai scorrere il contorno della selezione fino alla cella di destinazione invece di saltarci"
+        }
+        "Sheet structure is locked: sheets can't be added, moved, renamed or deleted." => {
+            "La struttura è bloccata: non è possibile aggiungere, spostare, rinominare o eliminare fogli."
+        }
+        "Lock the sheet structure so sheets can't be added, moved, renamed or deleted." => {
+            "Blocca la struttura in modo che non si possano aggiungere, spostare, rinominare o eliminare fogli."
+        }
         "Interface size" => "Dimensione interfaccia",
         "Auto" => "Automatica",
         "100%" => "100%",

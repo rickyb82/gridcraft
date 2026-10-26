@@ -2795,3 +2795,69 @@ fn a_decrypted_workbook_never_overwrites_its_encrypted_original() {
     assert_eq!(std::fs::read(&path).unwrap(), bytes, "the encrypted original is untouched");
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// `gridcraft-cli mcp --automation-read-root … --automation-write-root …`: every command that
+/// reads or writes a path is held to the roots, whatever form the path takes (`..`, absolute,
+/// a link out of the root), and a refused command leaves nothing on disk.
+#[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn commands_that_take_a_path_are_held_to_the_automation_roots() {
+    use crate::file_access::{AutomationRoots, confine, tests::link};
+    let base = std::env::temp_dir().join(format!("gridcraft-roots-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    for d in ["in", "out", "outside"] {
+        std::fs::create_dir_all(base.join(d)).unwrap();
+    }
+    std::fs::write(base.join("in/data.csv"), "a,b\n1,2\n").unwrap();
+    std::fs::write(base.join("outside/secret.csv"), "top,secret\n").unwrap();
+    let png = tiny_png();
+    std::fs::write(base.join("outside/x.png"), &png).unwrap();
+    let roots = AutomationRoots::new(Some(&base.join("in")), Some(&base.join("out"))).unwrap();
+    let p = |rel: &str| base.join(rel).to_string_lossy().into_owned();
+    let sep = std::path::MAIN_SEPARATOR;
+    let up = format!("{}{sep}..{sep}outside{sep}secret.csv", p("in"));
+    confine(Some(&roots), || {
+        let mut s = s();
+        // Reads: inside the read root only.
+        s.execute("data.fromTextCsv", json!({"path": p("in/data.csv")})).unwrap();
+        assert_eq!(v(&s, "A2"), Value::Number(1.0));
+        for path in [p("outside/secret.csv"), up.clone(), "/etc/passwd".to_string(), p("out/new.csv")] {
+            let e = s.execute("data.fromTextCsv", json!({"path": path})).unwrap_err().to_string();
+            assert!(e.contains("automation path rejected"), "{path}: {e}");
+            assert!(s.execute("file.open", json!({"path": path})).is_err(), "{path}");
+        }
+        assert!(s.execute("insert.picture", json!({"path": p("outside/x.png")})).is_err());
+        assert!(!format!("{:?}", s.doc().unwrap().wb.active().unwrap().cells).contains("secret"));
+        // Writes: inside the write root only; refused ones create nothing.
+        s.execute("file.save", json!({"path": p("out/book.xlsx")})).unwrap();
+        assert!(base.join("out/book.xlsx").is_file());
+        for (cmd, path) in [
+            ("file.save", p("outside/book.xlsx")),
+            ("file.saveAs", format!("{}{sep}..{sep}outside{sep}book.xlsx", p("out"))),
+            ("file.exportCsv", p("outside/sheet.csv")),
+            ("file.exportHtml", p("in/page.html")),
+            ("file.exportPdf", p("outside/print.pdf")),
+            ("file.print", p("outside/print2.pdf")),
+        ] {
+            let e = s.execute(cmd, json!({"path": path})).unwrap_err().to_string();
+            assert!(e.contains("automation path rejected"), "{cmd} {path}: {e}");
+        }
+        // The root itself names no file: its temporary sibling would land beside it.
+        assert!(s.execute("file.save", json!({"path": p("out")})).is_err());
+        assert!(!base.join("out.sctmp").exists());
+        // A link inside the roots that leads out of them.
+        if link(&base.join("outside/secret.csv"), &base.join("in/leak.csv")) && link(&base.join("outside"), &base.join("out/away")) {
+            let e = s.execute("data.fromTextCsv", json!({"path": p("in/leak.csv")})).unwrap_err().to_string();
+            assert!(e.contains("outside the read root"), "{e}");
+            let e = s.execute("file.save", json!({"path": p("out/away/book.xlsx")})).unwrap_err().to_string();
+            assert!(e.contains("outside the write root"), "{e}");
+        }
+    });
+    let left: Vec<_> = std::fs::read_dir(base.join("outside")).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert_eq!(left.len(), 2, "nothing written outside the write root: {left:?}");
+    assert!(!base.join("in/page.html").exists());
+    // Without roots in force (the desktop app, `gridcraft-cli run`) nothing is checked.
+    let mut s = s();
+    s.execute("data.fromTextCsv", json!({"path": p("outside/secret.csv")})).unwrap();
+    let _ = std::fs::remove_dir_all(base);
+}

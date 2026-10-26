@@ -161,7 +161,8 @@ log to standard error only.
 ## For agents: MCP, CLI and the control channel
 
 ```sh
-claude mcp add gridcraft -- gridcraft-cli mcp                 # headless MCP server
+claude mcp add gridcraft -- gridcraft-cli mcp --automation-read-root ~/work --automation-write-root ~/work
+                                                               # headless MCP server, files only in ~/work
 gridcraft-cli mcp --connect 7979                               # MCP bridged to a running window
 gridcraft-cli eval '=XLOOKUP("b",{"a","b"},{1,2})'             # → 2
 gridcraft-cli run --sample budget --cmd 'home.bold={"range":"B4:F4"}' --out budget.xlsx
@@ -174,7 +175,8 @@ The MCP server offers tools such as `read_range`, `write_range`, `set_cell`, `ev
 (which reaches every one of GridCraft's commands). The desktop app's control channel adds real
 pointer and keyboard input, dialogs and screenshots; it listens on `127.0.0.1` only and every
 request carries the window's key, which the app writes to `<settings>/control-key.local-<port>`
-at start (`gridcraft-cli mcp --connect` reads it for you). See [`docs/mcp.md`](docs/mcp.md),
+at start (`gridcraft-cli mcp --connect` reads it for you). The headless server reads and writes
+files only inside `--automation-read-root` / `--automation-write-root` (none without them). See [`docs/mcp.md`](docs/mcp.md),
 [`docs/cli.md`](docs/cli.md) and [`docs/control-protocol.md`](docs/control-protocol.md).
 
 ## Architecture

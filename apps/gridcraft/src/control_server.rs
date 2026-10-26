@@ -10,6 +10,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, Instant};
 
@@ -21,6 +22,25 @@ const MAX_LINE: usize = 1 << 20;
 
 /// A connection that sends no authorised request in this time is closed.
 const FIRST_REQUEST: Duration = Duration::from_secs(30);
+
+/// At most this many connections are served at once (one thread each); a further one is
+/// answered with an error and closed.
+const MAX_CONNECTIONS: usize = 16;
+
+/// One of the [`MAX_CONNECTIONS`] places, held while a connection is served.
+struct Slot(Arc<AtomicUsize>);
+
+impl Slot {
+    fn take(active: &Arc<AtomicUsize>) -> Option<Slot> {
+        active.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| (n < MAX_CONNECTIONS).then_some(n + 1)).ok().map(|_| Slot(active.clone()))
+    }
+}
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 
 /// The key file of a running control server; [`KeyFile::remove`] it when the window closes.
 pub struct KeyFile(PathBuf);
@@ -96,10 +116,19 @@ fn keys_match(given: &str, key: &str) -> bool {
 fn serve_on(listener: TcpListener, ctx: egui::Context, key: String, first: Duration) -> std::io::Result<Receiver<ControlRequest>> {
     let (tx, rx) = channel::<ControlRequest>();
     let key: Arc<str> = key.into();
+    let active = Arc::new(AtomicUsize::new(0));
     std::thread::Builder::new().name("control".into()).spawn(move || {
-        for stream in listener.incoming().flatten() {
+        for mut stream in listener.incoming().flatten() {
+            let Some(slot) = Slot::take(&active) else {
+                let _ = writeln!(stream, "{}", json!({"ok": false, "error": "too many connections"}));
+                continue;
+            };
             let (tx, ctx, key) = (tx.clone(), ctx.clone(), key.clone());
-            let _ = std::thread::Builder::new().name("control-conn".into()).spawn(move || serve(stream, tx, ctx, &key, first));
+            // A thread that can't be made drops the connection (and its slot).
+            let _ = std::thread::Builder::new().name("control-conn".into()).spawn(move || {
+                let _slot = slot;
+                serve(stream, tx, ctx, &key, first)
+            });
         }
     })?;
     Ok(rx)
@@ -390,6 +419,40 @@ mod tests {
         busy.send(r#"{"id":2,"method":"document.inspect"}"#);
         answer(&rx);
         assert_eq!(busy.recv()["ok"], true);
+    }
+
+    #[test]
+    fn connections_are_capped() {
+        let (port, rx) = boot();
+        let mut held: Vec<Conn> = (0..MAX_CONNECTIONS).map(|_| Conn::open(port)).collect();
+        // Every place is taken: one more is refused and closed, and reaches nothing.
+        let mut extra = Conn::open(port);
+        let mut line = String::new();
+        let refused = match extra.0.read_line(&mut line) {
+            Ok(0) | Err(_) => true,
+            Ok(_) => line.contains("too many connections"),
+        };
+        assert!(refused, "{line}");
+        let _ = writeln!(extra.1, r#"{{"id":1,"key":"{KEY}","method":"document.inspect"}}"#);
+        assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
+        // A held connection still works; closing one frees its place.
+        let first = held.first_mut().unwrap();
+        first.send(&format!(r#"{{"id":2,"key":"{KEY}","method":"document.inspect"}}"#));
+        answer(&rx);
+        assert_eq!(first.recv()["ok"], true);
+        held.pop();
+        let t0 = Instant::now();
+        loop {
+            let mut c = Conn::open(port);
+            c.send(&format!(r#"{{"id":3,"key":"{KEY}","method":"document.inspect"}}"#));
+            if let Ok(req) = rx.recv_timeout(Duration::from_secs(1)) {
+                let _ = req.reply.send(json!({"ok": true, "result": {}}));
+                assert_eq!(c.recv()["ok"], true);
+                break;
+            }
+            assert!(t0.elapsed() < Duration::from_secs(10), "the freed place was never given back");
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 
     #[test]

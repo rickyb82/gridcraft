@@ -9,7 +9,7 @@
 //! gridcraft-cli run [--in FILE | --sample NAME] [--cmd 'id={json}']... [--script FILE.jsonl] [--out FILE] [--print RANGE] [--quiet]
 //! gridcraft-cli commands [--json] [--search X]
 //! gridcraft-cli functions [--json] [--search X] [--category C]
-//! gridcraft-cli mcp [--connect PORT] [--in FILE | --sample NAME]
+//! gridcraft-cli mcp [--connect PORT] [--in FILE | --sample NAME] [--automation-read-root DIR] [--automation-write-root DIR]
 //! gridcraft-cli send <port> <method> [json]
 //! gridcraft-cli version | --version
 //! ```
@@ -45,7 +45,9 @@ const USAGE: &str = "usage:
                      [--out FILE] [--print RANGE] [--quiet]
   gridcraft-cli commands [--json] [--search X]
   gridcraft-cli functions [--json] [--search X] [--category C]
-  gridcraft-cli mcp [--connect PORT] [--in FILE | --sample NAME]
+  gridcraft-cli mcp [--connect PORT] [--in FILE | --sample NAME] [--automation-read-root DIR] [--automation-write-root DIR]
+                     the headless server reads files only inside the read root and writes only inside
+                     the write root; without them it reads and writes no file by path
   gridcraft-cli send <port> <method> [json]
   gridcraft-cli version";
 
@@ -494,11 +496,31 @@ fn functions(args: &[String]) -> Result<(), String> {
 
 /// `mcp` (headless, in-process engine) or `mcp --connect PORT|HOST:PORT` (drive a running app
 /// started with `gridcraft --control PORT`). JSON-RPC on stdin/stdout; logs on stderr.
+/// `--automation-read-root DIR` / `--automation-write-root DIR` (each at most once): the folders the
+/// headless MCP server may read and write. Neither: no file by path.
+fn automation_roots(a: &Args) -> Result<std::sync::Arc<gridcraft_engine::file_access::AutomationRoots>, String> {
+    let one = |name: &str| -> Result<Option<std::path::PathBuf>, String> {
+        let mut given = a.opts.iter().filter(|(n, _)| n == name).map(|(_, v)| std::path::PathBuf::from(v));
+        let first = given.next();
+        if given.next().is_some() {
+            return Err(format!("mcp: --{name} given more than once"));
+        }
+        Ok(first)
+    };
+    let (read, write) = (one("automation-read-root")?, one("automation-write-root")?);
+    gridcraft_engine::file_access::AutomationRoots::new(read.as_deref(), write.as_deref()).map_err(|e| format!("mcp: {e}"))
+}
+
 fn mcp(args: &[String]) -> Result<(), String> {
     use gridcraft_mcp::{Backend, Headless, Remote, Server, control_addr};
-    let a = Args::parse(args, &["connect", "in", "sample"], &[])?;
+    let a = Args::parse(args, &["connect", "in", "sample", "automation-read-root", "automation-write-root"], &[])?;
     a.no_extra(0)?;
     let backend: Box<dyn Backend> = match a.opt("connect") {
+        Some(_) if a.opt("automation-read-root").is_some() || a.opt("automation-write-root").is_some() => {
+            return Err("mcp: --automation-read-root and --automation-write-root confine the headless server; \
+                        a running app (--connect) is not confined by them"
+                .into());
+        }
         Some(c) => {
             let addr = control_addr(c);
             Box::new(
@@ -507,6 +529,8 @@ fn mcp(args: &[String]) -> Result<(), String> {
             )
         }
         None => {
+            let roots = automation_roots(&a)?;
+            // `--in` is the operator's own file, opened before the roots are in force.
             let session = match (a.opt("in"), a.opt("sample")) {
                 (Some(p), _) => open(p)?,
                 (None, Some(name)) => {
@@ -516,6 +540,9 @@ fn mcp(args: &[String]) -> Result<(), String> {
                 }
                 (None, None) => blank(),
             };
+            let show = |p: Option<&std::path::Path>| p.map_or_else(|| "none".to_string(), |p| p.display().to_string());
+            eprintln!("gridcraft-cli: files confined: read root {}, write root {}", show(roots.read_root()), show(roots.write_root()));
+            gridcraft_engine::file_access::confine_process(roots);
             Box::new(Headless::with_session(session))
         }
     };
@@ -549,6 +576,32 @@ fn send(args: &[String]) -> Result<(), String> {
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
+
+    #[test]
+    fn mcp_automation_roots() {
+        let dir = std::env::temp_dir().join(format!("gridcraft-cli-roots-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("out")).unwrap();
+        let d = dir.to_string_lossy().into_owned();
+        let out = dir.join("out").to_string_lossy().into_owned();
+        let args = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let parse = |v: &[&str]| Args::parse(&args(v), &["connect", "in", "sample", "automation-read-root", "automation-write-root"], &[]).unwrap();
+        let roots = automation_roots(&parse(&["--automation-read-root", &d, &format!("--automation-write-root={out}")])).unwrap();
+        assert!(roots.read_root().is_some() && roots.write_root().is_some());
+        let inside = dir.join("out/x.xlsx").to_string_lossy().into_owned();
+        assert!(roots.check(&inside, gridcraft_engine::file_access::Access::Write).is_ok());
+        assert!(roots.check(&d, gridcraft_engine::file_access::Access::Write).is_err(), "the read root is not writable");
+        // Neither root: nothing by path.
+        let none = automation_roots(&parse(&[])).unwrap();
+        assert!(none.check(&inside, gridcraft_engine::file_access::Access::Read).unwrap_err().contains("--automation-read-root"));
+        // A missing folder, a repeated flag, an empty value.
+        assert!(automation_roots(&parse(&["--automation-read-root", "/definitely/not/a/folder"])).unwrap_err().contains("read root"));
+        assert!(automation_roots(&parse(&["--automation-read-root", &d, "--automation-read-root", &out])).unwrap_err().contains("more than once"));
+        assert!(automation_roots(&parse(&["--automation-write-root="])).is_err());
+        // They confine the headless server only.
+        let e = mcp(&args(&["--connect", "1", "--automation-read-root", &d])).unwrap_err();
+        assert!(e.contains("--connect"), "{e}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn parses_commands() {

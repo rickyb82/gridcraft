@@ -518,3 +518,49 @@ fn text_to_columns_destination_follows_its_sheet() {
     cmd_fails(&mut s, "data.textToColumns", json!({"range": "Other!A1", "delimiters": [","], "destination": "D0"}));
     cmd_fails(&mut s, "data.textToColumns", json!({"range": "Other!A1", "delimiters": [","], "destination": "Sheet1!D1"}));
 }
+
+// ---------- automation roots ----------
+
+/// `gridcraft-cli mcp --automation-read-root … --automation-write-root …`: a document the agent
+/// reads can't steer it into reading or writing files elsewhere, through any tool.
+#[test]
+fn tools_are_held_to_the_automation_roots() {
+    use gridcraft_engine::file_access::{AutomationRoots, confine};
+    let base = std::env::temp_dir().join(format!("gridcraft-mcp-roots-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    for d in ["in", "out", "outside"] {
+        std::fs::create_dir_all(base.join(d)).unwrap();
+    }
+    std::fs::write(base.join("in/data.csv"), "a,b\n1,2\n").unwrap();
+    std::fs::write(base.join("outside/secret.csv"), "top,secret\n").unwrap();
+    let p = |rel: &str| base.join(rel).to_string_lossy().into_owned();
+    let sep = std::path::MAIN_SEPARATOR;
+    let roots = AutomationRoots::new(Some(&base.join("in")), Some(&base.join("out"))).unwrap();
+    confine(Some(&roots), || {
+        let mut s = server();
+        ok(&mut s, "open_workbook", json!({"path": p("in/data.csv")}));
+        let e = fails(&mut s, "open_workbook", json!({"path": format!("{}{sep}..{sep}outside{sep}secret.csv", p("in"))}));
+        assert!(e.contains("outside the read root"), "{e}");
+        let e = fails(&mut s, "execute_command", json!({"command": "data.fromTextCsv", "params": {"path": p("outside/secret.csv")}}));
+        assert!(e.contains("outside the read root"), "{e}");
+        let read = ok(&mut s, "read_range", json!({"range": "A1:B2"}));
+        assert!(!read.to_string().contains("secret"), "{read}");
+        ok(&mut s, "save_workbook", json!({"path": p("out/book.xlsx")}));
+        let e = fails(&mut s, "save_workbook", json!({"path": "/tmp/../tmp/gridcraft-escape.xlsx"}));
+        assert!(e.contains("automation path rejected"), "{e}");
+        for cmd in ["file.exportCsv", "file.exportHtml", "file.saveAs"] {
+            let e = fails(&mut s, "execute_command", json!({"command": cmd, "params": {"path": p("outside/x.csv")}}));
+            assert!(e.contains("outside the write root"), "{cmd}: {e}");
+        }
+        // No roots at all (the server's default): no file by path.
+        let none = AutomationRoots::new(None, None).unwrap();
+        confine(Some(&none), || {
+            let e = fails(&mut s, "open_workbook", json!({"path": p("in/other.csv")}));
+            assert!(e.contains("--automation-read-root"), "{e}");
+        });
+    });
+    assert!(base.join("out/book.xlsx").is_file());
+    assert_eq!(std::fs::read_dir(base.join("outside")).unwrap().count(), 1, "nothing written outside");
+    assert!(!std::path::Path::new("/tmp/gridcraft-escape.xlsx").exists());
+    let _ = std::fs::remove_dir_all(base);
+}

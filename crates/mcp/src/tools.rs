@@ -329,7 +329,8 @@ pub fn tool_definitions() -> Vec<Value> {
         tool(
             "open_workbook",
             "Open workbook",
-            "Open a workbook file (.xlsx, .xlsm, .xls, .xlsb, .ods, .csv, .tsv, .txt, .json) and make it active. Excel 97-2003 .xls imports values, formulas and number formats; XLSB and ODS import worksheet data and cached formula values only; check the returned warnings.",
+            "Open a workbook file (.xlsx, .xlsm, .xls, .xlsb, .ods, .csv, .tsv, .txt, .json) and make it active. Excel 97-2003 .xls imports values, formulas and number formats; XLSB and ODS import worksheet data and cached formula values only; check the returned warnings. \
+             The headless server reads files only inside its read root (`--automation-read-root`).",
             obj(json!({"path": string("File path")}), &["path"]),
             false,
         ),
@@ -337,7 +338,8 @@ pub fn tool_definitions() -> Vec<Value> {
             "save_workbook",
             "Save workbook",
             "Save the active workbook. The format follows the extension (.xlsx default; .csv/.tsv save the active sheet; .json; .html). \
-             Without `path` saves to the workbook's current file.",
+             Without `path` saves to the workbook's current file. The headless server writes files only inside its write root \
+             (`--automation-write-root`).",
             obj(json!({"path": string("Destination path")}), &[]),
             false,
         ),
@@ -546,7 +548,7 @@ fn save_workbook(b: &mut dyn Backend, a: &Args) -> Result<Value, String> {
     if a.get("path").and_then(Value::as_str).is_none() {
         let info = b.call("document.inspect", json!({}))?;
         if info.get("path").is_none_or(Value::is_null) {
-            return Err("this workbook has never been saved: pass `path` (e.g. \"/tmp/book.xlsx\")".into());
+            return Err("this workbook has never been saved: pass `path` (a file inside the server's write root)".into());
         }
     }
     exec(b, "file.save", pick(a, &["path"]))

@@ -45,8 +45,8 @@ impl<'a> Package<'a> {
         }
         let mut names = HashMap::new();
         for i in 0..zip.len() {
-            if let Some(n) = zip.name_for_index(i) {
-                names.entry(normalize(n)).or_insert(i);
+            if let Some(Ok(n)) = zip.name_for_index(i) {
+                names.entry(normalize(&n)).or_insert(i);
             }
         }
         Ok(Package { zip, names, total: 0 })

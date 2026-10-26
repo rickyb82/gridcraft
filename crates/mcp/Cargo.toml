@@ -10,5 +10,6 @@ workspace = true
 
 [dependencies]
 gridcraft-engine = { workspace = true }
+gridcraft-control-key = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }

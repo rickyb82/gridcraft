@@ -3,7 +3,8 @@
 //! Usage: `gridcraft [--control <port>] [--sample <name>] [files…]`
 //!
 //! `--control <port>` (or `GRIDCRAFT_CONTROL_PORT`) starts a localhost JSON-lines control
-//! server: `{"id":1,"method":"ui.inspect","params":{}}` → `{"id":1,"ok":true,"result":…}`.
+//! server: `{"id":1,"key":"…","method":"ui.inspect","params":{}}` → `{"id":1,"ok":true,"result":…}`.
+//! Every request carries the window's key, written to `<settings>/control-key.local-<port>`.
 //! See `gridcraft_ui_egui::control` and `docs/control-protocol.md` for the methods.
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
@@ -24,19 +25,25 @@ use gridcraft_engine::Session;
 use gridcraft_ui_egui::{Services, SheetApp};
 use serde_json::json;
 
-struct App(SheetApp, #[cfg(target_os = "macos")] Option<native_menu::NativeMenu>, #[cfg(target_os = "macos")] fmv_macos_events::Inbox);
+struct App(
+    SheetApp,
+    /// The control channel's key file, removed when the window closes.
+    Option<control_server::KeyFile>,
+    #[cfg(target_os = "macos")] Option<native_menu::NativeMenu>,
+    #[cfg(target_os = "macos")] fmv_macos_events::Inbox,
+);
 
 impl eframe::App for App {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(target_os = "macos")]
         {
-            if self.1.is_none() && std::env::var_os("GRIDCRAFT_NO_NATIVE_MENU").is_none() {
-                self.1 = Some(native_menu::NativeMenu::install(ctx));
+            if self.2.is_none() && std::env::var_os("GRIDCRAFT_NO_NATIVE_MENU").is_none() {
+                self.2 = Some(native_menu::NativeMenu::install(ctx));
             }
-            if let Some(m) = &self.1 {
+            if let Some(m) = &self.2 {
                 m.poll(&mut self.0, ctx);
             }
-            apple_events::poll(&self.2, &mut self.0, ctx);
+            apple_events::poll(&self.3, &mut self.0, ctx);
         }
         self.0.logic(ctx);
     }
@@ -54,6 +61,9 @@ impl eframe::App for App {
     }
     fn on_exit(&mut self) {
         save_prefs(&self.0);
+        if let Some(key_file) = &self.1 {
+            key_file.remove();
+        }
         // macOS (#117): end the process here, before eframe tears the window down. AccessKit's
         // macOS adapter subclasses the window's content view and restores its class on teardown;
         // AppKit's Touch Bar support observes that view (KVO), so in the next display cycle
@@ -67,17 +77,10 @@ impl eframe::App for App {
     }
 }
 
+/// The per-user settings folder (`ui.json`, `logs/`, the control key file); one rule shared with
+/// the MCP bridge, which reads the key file.
 fn config_dir() -> Option<std::path::PathBuf> {
-    if cfg!(target_os = "macos") {
-        std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join("Library/Application Support/GridCraft"))
-    } else if cfg!(windows) {
-        std::env::var_os("APPDATA").map(|a| std::path::PathBuf::from(a).join("GridCraft"))
-    } else {
-        std::env::var_os("XDG_CONFIG_HOME")
-            .map(std::path::PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))
-            .map(|c| c.join("gridcraft"))
-    }
+    gridcraft_control_key::settings_dir()
 }
 
 /// Runs without preferences (`GRIDCRAFT_NO_PREFS`, agents' test runs) neither read nor write
@@ -361,14 +364,19 @@ fn main() -> eframe::Result<()> {
                     return Err("the app was already created".into());
                 };
                 SheetApp::setup_context_for_language(&cc.egui_ctx, app.ui.dark, app.ui.language);
+                let mut key_file = None;
                 if let Some(port) = control_port {
-                    match control_server::start(port, cc.egui_ctx.clone()) {
-                        Ok(rx) => app.control_rx = Some(rx),
+                    match control_server::start(port, cc.egui_ctx.clone(), config_dir().as_deref()) {
+                        Ok((rx, file)) => {
+                            app.control_rx = Some(rx);
+                            key_file = file;
+                        }
                         Err(e) => log::error!("control channel on port {port}: {e}"),
                     }
                 }
                 Ok(Box::new(App(
                     app,
+                    key_file,
                     #[cfg(target_os = "macos")]
                     None,
                     #[cfg(target_os = "macos")]

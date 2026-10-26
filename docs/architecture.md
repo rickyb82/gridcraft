@@ -13,6 +13,7 @@ including tests, 2026-10-10.
 | Layer | Crate | Lines | Job |
 |---|---|---|---|
 | L0 | `core` | ~1.3k | Cell and range addresses (A1, R1C1, sheet-qualified; 1,048,576 × 16,384), `Value`, `CellError`, Excel coercion, 1900/1904 date serials, typed-input parsing |
+| L0 | `control-key` | <0.1k | Where the desktop app's control-port key file lives (`<settings>/control-key.local-<port>`), shared by the app that writes it and the MCP bridge that reads it |
 | L0 | `numfmt` | ~2.1k | Excel number-format codes (sections, conditions, colours, dates, elapsed time, fractions, scientific, fill), General, `TEXT()`; en-US only |
 | L1 | `formula` | ~1.7k | Tokenizer, parser, AST, printer (A1 and R1C1), reference adjustment for copy, fill and structural edits |
 | L1 | `functions` | ~13.4k | The function library: `FnSpec` registry (name, arity, category, scalar args, signature, description) and pure implementations; automatic array lifting |

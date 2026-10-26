@@ -2281,10 +2281,29 @@ fn delete_selected_object(app: &mut SheetApp, sh: &Sheet) -> bool {
     true
 }
 
+/// Whether a cell's hyperlink may be handed to the system: web and email links only, so a
+/// workbook can't launch `file:` paths, programs or custom-scheme handlers (`ms-msdt:`,
+/// `javascript:`, `smb://`…) with a single click.
+pub fn is_followable_link(target: &str) -> bool {
+    let t = target.trim();
+    if t.chars().any(char::is_control) {
+        return false;
+    }
+    ["http://", "https://", "mailto:"]
+        .iter()
+        .any(|scheme| t.len() > scheme.len() && t.get(..scheme.len()).is_some_and(|p| p.eq_ignore_ascii_case(scheme)))
+}
+
 pub fn follow_link(app: &mut SheetApp, target: &str) {
-    if target.contains("://") || target.starts_with("mailto:") {
+    let t = target.trim();
+    let external = t.contains("://") || t.get(..7).is_some_and(|p| p.eq_ignore_ascii_case("mailto:"));
+    if external {
+        if !is_followable_link(t) {
+            app.toast = Some(("Only web (http, https) and email (mailto) links can be followed".to_string(), crate::now_ms()));
+            return;
+        }
         if let Some(f) = &app.services.open_url {
-            f(target);
+            f(t);
         }
     } else {
         let t = target.trim_start_matches('#');
@@ -3052,6 +3071,61 @@ mod selection_fill_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_web_and_email_links_are_followed() {
+        for ok in [
+            "https://example.com/a?b#c",
+            "http://example.com",
+            "HTTPS://EXAMPLE.COM",
+            "Mailto:someone@example.com",
+            "mailto:someone@example.com",
+            "  https://example.com  ",
+        ] {
+            assert!(is_followable_link(ok), "{ok}");
+        }
+        for bad in [
+            "file:///etc/passwd",
+            "file://C:/Windows/System32/calc.exe",
+            "C:\\Windows\\System32\\calc.exe",
+            "/usr/bin/xterm",
+            "javascript:alert(1)",
+            "ms-msdt:/id",
+            "smb://host/share",
+            "ftp://example.com",
+            "https\u{0}://example.com",
+            "https://exa\nmple.com",
+            "http://",
+            "mailto:",
+            "",
+            "example.com",
+            "#Sheet1!A1",
+        ] {
+            assert!(!is_followable_link(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_click_on_a_file_or_custom_scheme_link_shows_a_message_instead_of_opening_it() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let opened = Rc::new(RefCell::new(Vec::<String>::new()));
+        let sink = opened.clone();
+        let services = crate::Services { open_url: Some(Box::new(move |u: &str| sink.borrow_mut().push(u.to_string()))), ..Default::default() };
+        let mut app = SheetApp::new(gridcraft_engine::Session::default(), services);
+        for bad in ["file:///etc/passwd", "smb://host/share", "ms-msdt://id", "JAVASCRIPT://x"] {
+            app.toast = None;
+            follow_link(&mut app, bad);
+            assert!(app.toast.as_ref().is_some_and(|(m, _)| m.contains("Only web")), "{bad}: {:?}", app.toast);
+        }
+        assert!(opened.borrow().is_empty(), "{:?}", opened.borrow());
+        follow_link(&mut app, " HTTPS://example.com/x ");
+        follow_link(&mut app, "mailto:a@example.com");
+        assert_eq!(*opened.borrow(), vec!["HTTPS://example.com/x".to_string(), "mailto:a@example.com".to_string()]);
+        // An in-workbook reference is not a URL: it goes to the cell, never to the system.
+        follow_link(&mut app, "#Sheet1!B2");
+        assert_eq!(opened.borrow().len(), 2);
+    }
 
     #[test]
     fn cell_text_y_moves_monotonically_in_standard_and_tall_rows() {

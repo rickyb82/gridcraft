@@ -172,7 +172,9 @@ gridcraft-cli commands --search chart                          # every command a
 The MCP server offers tools such as `read_range`, `write_range`, `set_cell`, `evaluate_formula`,
 `format_range`, `insert_chart`, `create_table`, `sort_range`, `filter` and `execute_command`
 (which reaches every one of GridCraft's commands). The desktop app's control channel adds real
-pointer and keyboard input, dialogs and screenshots. See [`docs/mcp.md`](docs/mcp.md),
+pointer and keyboard input, dialogs and screenshots; it listens on `127.0.0.1` only and every
+request carries the window's key, which the app writes to `<settings>/control-key.local-<port>`
+at start (`gridcraft-cli mcp --connect` reads it for you). See [`docs/mcp.md`](docs/mcp.md),
 [`docs/cli.md`](docs/cli.md) and [`docs/control-protocol.md`](docs/control-protocol.md).
 
 ## Architecture

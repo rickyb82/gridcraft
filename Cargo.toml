@@ -23,6 +23,7 @@ gridcraft-chart = { path = "crates/chart" }
 gridcraft-engine = { path = "crates/engine" }
 gridcraft-ui-egui = { path = "crates/ui-egui" }
 gridcraft-mcp = { path = "crates/mcp" }
+gridcraft-control-key = { path = "crates/control-key" }
 gridcraft-pdf = { path = "crates/pdf" }
 
 # foundation

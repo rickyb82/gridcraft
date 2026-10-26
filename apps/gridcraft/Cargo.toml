@@ -13,11 +13,14 @@ workspace = true
 [dependencies]
 gridcraft-engine = { workspace = true }
 gridcraft-ui-egui = { workspace = true }
+gridcraft-control-key = { workspace = true }
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11"] }
 egui = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 image = { workspace = true }
+# The control channel's per-window key (`control_server.rs`).
+getrandom = "0.3"
 
 [build-dependencies]
 # Icon + VERSIONINFO for gridcraft.exe; build.rs only uses it when the target is Windows.

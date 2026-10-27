@@ -2861,3 +2861,15 @@ fn commands_that_take_a_path_are_held_to_the_automation_roots() {
     s.execute("data.fromTextCsv", json!({"path": p("outside/secret.csv")})).unwrap();
     let _ = std::fs::remove_dir_all(base);
 }
+
+/// Data › From Text/CSV reads the fields into a new sheet: a formula field arrives as the same
+/// formula, computed there, not as an empty cell.
+#[test]
+fn csv_import_into_a_sheet_keeps_formulas() {
+    let mut s = s();
+    s.execute("data.fromTextCsv", json!({"text": "Item,Amount\nRent,800\nFood,300\nTotal,=SUM(B2:B3)\n", "sheet": "Budget"})).unwrap();
+    let v = s.execute("sheet.read", json!({"sheet": "Budget", "range": "A4:B4"})).unwrap();
+    assert_eq!(v["values"], json!([["Total", 1100.0]]));
+    let f = s.execute("sheet.read", json!({"sheet": "Budget", "range": "B4", "formulas": true})).unwrap();
+    assert_eq!(f["values"], json!([["=SUM(B2:B3)"]]));
+}

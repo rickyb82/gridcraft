@@ -464,6 +464,23 @@ mod tests {
         b
     }
 
+    /// A CSV written by a script with totals as formulas opens computed, as in Excel, instead of
+    /// showing the formula text until the cell is re-entered.
+    #[test]
+    fn csv_formulas_open_computed() {
+        let text = "Voce,Importo\r\nAffitto,800\r\nSpesa,300\r\nTotale,=SUM(B2:B3)\r\nMedia,\"=AVERAGE(B2:B3)\"\r\nRiga,=SOMMA(B2;B3)\r\nSegno,=\r\n";
+        let (wb, _) = open_bytes("budget.csv", text.as_bytes()).unwrap();
+        let doc = crate::DocState::new(wb, None, "budget.csv".into());
+        let sh = doc.wb.sheet(0).unwrap();
+        let at = |a1: &str| sh.cell(gridcraft_core::CellRef::parse(a1).unwrap()).cloned().unwrap_or_default();
+        assert_eq!(at("B4").value, gridcraft_core::Value::number(1100.0));
+        assert_eq!(at("B4").input_text(), "=SUM(B2:B3)");
+        assert_eq!(at("B5").value, gridcraft_core::Value::number(550.0));
+        // what doesn't parse stays the text it was
+        assert!(at("B6").formula.is_none() && at("B6").value == gridcraft_core::Value::text("=SOMMA(B2;B3)"));
+        assert!(at("B7").formula.is_none());
+    }
+
     /// Cut-list rows as a CAD/CAM program exports them: `;`-separated, CRLF, part codes in the last
     /// two columns, a part name containing a comma.
     const CUT_LIST: &str = "1;511;184;P3_L1_led;2162PE;16;1MM_2162PE;1MM_2162PE;;;1244121406FB;\r\n\

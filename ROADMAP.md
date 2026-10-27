@@ -132,6 +132,7 @@ Ranked; estimates in Opus 5.5 agent-hours. Detail and the full beta-gate list in
 
 | Date | What landed |
 |---|---|
+| 2026-10-27 | CSV fields that start with `=` open as formulas and compute, as in Excel (a CSV written by a script showed `=SUM(B2:B9)` as text until re-entered); the formula parser refuses operator chains deeper than 1024 links instead of building a tree that overflowed the stack (a hostile `=1+1+…` in an XLSX or CSV crashed the app) |
 | 2026-10-26 | Security: the headless MCP server reads and writes files only inside `--automation-read-root` / `--automation-write-root` (links followed, `..` and absolute paths outside refused; no file by path without them); the control channel serves at most 16 connections; zip 9 (RUSTSEC-2026-0367/0368/0369) and tokio 1.54.1 |
 | 2026-10-26 | Control channel hardened: every request needs the window's key (`<settings>/control-key.local-<port>`, 0600, constant-time compare), a non-JSON line closes the connection, 1 MiB line cap, 30 s first-request deadline; `gridcraft-cli mcp --connect`/`send` read the key; cell hyperlinks follow only `http`, `https` and `mailto` |
 | 2026-10-11 | Command-sequence fuzzing: random command sequences checked against undo/redo, XLSX round-trip and full recalculation; fixes for the table, legacy-array, spill, AutoSum, Watch Window and sheet-copy bugs it found |
@@ -179,6 +180,7 @@ Ranked; estimates in Opus 5.5 agent-hours. Detail and the full beta-gate list in
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-27 | minor | Progress log: CSV formulas, operator-chain depth limit |
 | 2026-10-26 | minor | Progress log: MCP automation roots, control-channel connection cap, dependency upgrades |
 | 2026-10-11 | minor | Password-encrypted workbooks open (#11); progress log row |
 | 2026-10-11 | minor | Forecast Sheet (#322); progress log row |

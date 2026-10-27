@@ -16,6 +16,10 @@ pub struct ParseError {
 }
 
 pub(crate) const MAX_DEPTH: usize = 256;
+/// How deep one expression may grow without recursing: every link of an operator chain
+/// (`=1+1+1…`) nests the tree one level more, and printing or dropping a tree tens of thousands
+/// deep overflows the stack (1 MB in the browser). Chains this long already evaluate to #CALC!.
+const MAX_CHAIN: usize = 1024;
 
 /// Parses formula text. A leading `=` (or `+`/`-` as Lotus users type) is accepted and skipped
 /// for `=`.
@@ -155,7 +159,12 @@ impl Parser {
             return Err(self.err("formula is nested too deeply"));
         }
         let mut lhs = self.prefix(allow_union)?;
+        let mut links = 0usize;
         loop {
+            links += 1;
+            if self.depth + links > MAX_CHAIN {
+                return Err(self.err("formula is nested too deeply"));
+            }
             if *self.peek() == Tok::Op("%") {
                 if 70 < min_bp {
                     break;

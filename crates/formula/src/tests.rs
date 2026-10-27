@@ -301,3 +301,20 @@ fn trim_references_adjust() {
     let refs: Vec<String> = parse("SUM(Sheet2!A1:.B5)").unwrap().references().iter().map(|r| printer::reference_a1(r)).collect();
     assert_eq!(refs, ["Sheet2!A1:B5"]);
 }
+
+/// A flat operator chain from a hostile file is refused while parsing, before it builds a tree
+/// deep enough to overflow the stack when printed or dropped; ordinary chains still parse.
+#[test]
+fn long_operator_chains_are_refused_not_a_stack_overflow() {
+    let small_stack = std::thread::Builder::new().stack_size(1 << 20);
+    let handle = small_stack
+        .spawn(|| {
+            let long = vec!["1"; 50_000].join("+");
+            assert!(parse(&long).unwrap_err().msg.contains("nested too deeply"));
+            let ok = vec!["A1"; 300].join("+");
+            let e = parse(&ok).unwrap();
+            assert_eq!(print(&e), ok);
+        })
+        .unwrap();
+    handle.join().unwrap();
+}

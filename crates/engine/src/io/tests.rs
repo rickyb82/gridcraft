@@ -881,3 +881,20 @@ fn the_merge_index_holds_a_bounded_number_of_cells() {
     sh.merges = vec![RangeRef::new(CellRef::new(0, 0), CellRef::new(1_000_000, 0))];
     assert!(merge_index(&sh, rect).is_none());
 }
+
+/// A CSV written by a script with totals as formulas opens computed, as in Excel, instead of
+/// showing the formula text until the cell is re-entered.
+#[test]
+fn csv_formulas_open_computed() {
+    let text = "Voce,Importo\r\nAffitto,800\r\nSpesa,300\r\nTotale,=SUM(B2:B3)\r\nMedia,\"=AVERAGE(B2:B3)\"\r\nRiga,=SOMMA(B2;B3)\r\nSegno,=\r\n";
+    let (wb, _) = open_bytes("budget.csv", text.as_bytes()).unwrap();
+    let doc = crate::DocState::new(wb, None, "budget.csv".into(), crate::Trust::FromFile);
+    let sh = doc.wb.sheet(0).unwrap();
+    let at = |a1: &str| sh.cell(gridcraft_core::CellRef::parse(a1).unwrap()).cloned().unwrap_or_default();
+    assert_eq!(at("B4").value, gridcraft_core::Value::number(1100.0));
+    assert_eq!(at("B4").input_text(), "=SUM(B2:B3)");
+    assert_eq!(at("B5").value, gridcraft_core::Value::number(550.0));
+    // what doesn't parse stays the text it was
+    assert!(at("B6").formula.is_none() && at("B6").value == gridcraft_core::Value::text("=SOMMA(B2;B3)"));
+    assert!(at("B7").formula.is_none());
+}

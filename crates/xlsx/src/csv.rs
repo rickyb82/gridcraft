@@ -7,7 +7,7 @@ use std::sync::Arc;
 use gridcraft_core::date::{days_in_month_in, serial_from_ymd};
 use gridcraft_core::parse::{Parsed, parse_input};
 use gridcraft_core::{CellRef, DateSystem, MAX_COLS, MAX_ROWS, Value, col_to_letters};
-use gridcraft_model::{Cell, NumFmt, Sheet, StyleId, Workbook};
+use gridcraft_model::{Cell, Formula, NumFmt, Sheet, StyleId, Workbook};
 
 use crate::{CsvOptions, IoError, ReadReport};
 
@@ -237,6 +237,17 @@ fn date_warnings(columns: &[(DateRule, DateEvidence)], report: &mut ReadReport) 
     }
 }
 
+/// Like Excel, a field that starts with `=` is a formula (`=SUM(B2:B9)`), computed when the
+/// workbook opens; one that doesn't parse (`=SOMMA(B2;B9)`, a lone `=`) stays text.
+fn formula_cell(field: &str) -> Option<Cell> {
+    let body = field.strip_prefix('=')?;
+    if body.trim().is_empty() {
+        return None;
+    }
+    let expr = gridcraft_formula::parse(body).ok()?;
+    Some(Cell::formula(Formula::from_expr(expr)))
+}
+
 /// Reads one field with the column's date rule; other values go through typed input.
 fn read_field(field: &str, sys: DateSystem, rule: DateRule) -> Parsed {
     match numeric_date(field, sys) {
@@ -286,7 +297,11 @@ pub fn read_csv_with_report(bytes: &[u8], opts: &CsvOptions) -> Result<(Workbook
             let pos = CellRef::new(row, col as u32);
             let (r0, c0, c1) = used.map_or((row, col as u32, col as u32), |(r0, c0, _, c1)| (r0, c0.min(col as u32), c1.max(col as u32)));
             used = Some((r0, c0, row, c1));
-            let cell = if opts.parse_values {
+            let cell = if opts.parse_values
+                && let Some(cell) = formula_cell(&f)
+            {
+                cell
+            } else if opts.parse_values {
                 let rule = date_columns.get(col).map_or(DateRule::NoDates, |(rule, _)| *rule);
                 let p = read_field(&f, opts.date_system, rule);
                 let style = match p.format {

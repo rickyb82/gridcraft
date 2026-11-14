@@ -30,7 +30,7 @@ concurrency:
 env:
   APP_NAME: gridcraft
   APP_TITLE: GridCraft
-  CRAFT_FONTS_REF: abb83316d96aa59c1cf64784289e378fe9fa5695
+  CRAFT_FONTS_REF: b076417b5880bd4154bd22f00695b1d28c6bea83
 
 jobs:
   version:

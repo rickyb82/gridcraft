@@ -1009,10 +1009,13 @@ fn script_sandbox_check(path: &str) -> Result<()> {
 #[cfg(not(target_arch = "wasm32"))]
 const MAX_READ_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
+/// Read a file a command names. Held to the automation read root when one is in force
+/// ([`crate::file_access`]).
 #[cfg(not(target_arch = "wasm32"))]
 pub fn read_file(path: &str) -> Result<Vec<u8>> {
     use std::io::Read;
     script_sandbox_check(path)?;
+    crate::file_access::check_read(path).map_err(EngineError::Other)?;
     // Checked before opening: opening a FIFO nobody writes to blocks the calling (GUI) thread.
     // shortcut: a FIFO swapped in between this check and the open still blocks; close that with
     // O_NONBLOCK when the crate takes a libc dependency.
@@ -1050,6 +1053,10 @@ pub fn write_file(path: &str, bytes: &[u8]) -> Result<()> {
     // link's target; and it inherits the destination's access restrictions, so saving a
     // private workbook doesn't widen who can read it.
     let tmp = format!("{path}.sctmp");
+    // Held to the automation write root when one is in force ([`crate::file_access`]): the file
+    // and its temporary sibling (for `path` naming the root itself, the sibling would land beside
+    // the root).
+    crate::file_access::check_write(path).and_then(|()| crate::file_access::check_write(&tmp)).map_err(EngineError::Other)?;
     let prior_meta = std::fs::metadata(path).ok();
     let prior = prior_meta.as_ref().map(std::fs::Metadata::permissions);
     let mut opts = std::fs::OpenOptions::new();

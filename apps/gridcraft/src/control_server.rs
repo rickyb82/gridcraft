@@ -1,272 +1,276 @@
 //! Localhost JSON-lines control server. Each connection may send many requests; each line
-//! `{"id":…, "key":…, "method":…, "params":…}` gets one reply line `{"id":…, "ok":…, …}`.
+//! `{"id":…, "method":…, "params":…}` gets one reply line `{"id":…, "ok":…, …}`.
 //!
-//! Every request needs the window's key (`docs/control-protocol.md`, Keys): once the port is
-//! bound, the app writes a random key to `<settings>/control-key.local-<port>` (mode 0600) and
-//! removes the file when the window closes.
-#![allow(clippy::disallowed_methods)] // the desktop app (native only): wasm never runs it
+//! The first line of a connection must authenticate with the app's token (#777; see
+//! `gridcraft_mcp::control_auth`). A connection that doesn't, or later sends a line that isn't
+//! JSON, is answered once and closed.
+//!
+//! The server only reads requests: a line that is not a JSON object with a string `method` (an
+//! HTTP request line, a stray `nc`, binary data) gets one error reply and the connection is
+//! closed, so nothing sent after it runs.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, Instant};
 
+use gridcraft_mcp::control_auth;
 use gridcraft_ui_egui::ControlRequest;
 use serde_json::{Value as Json, json};
 
-/// Longer request lines are refused (and the connection closed).
-const MAX_LINE: usize = 1 << 20;
+const MAX_LINE: usize = 64 * 1024 * 1024;
+/// How long a new connection may take to send its token, in total.
+const AUTH_TIMEOUT: Duration = Duration::from_secs(10);
+/// How many connections may be waiting to authenticate at once. Anyone on the machine can
+/// connect without the token, so past this a new connection is closed before anything is read:
+/// each waiting one holds a thread and a socket.
+const MAX_PENDING_AUTH: usize = 16;
 
-/// A connection that sends no authorised request in this time is closed.
-const FIRST_REQUEST: Duration = Duration::from_secs(30);
+/// How the server treats connections that haven't authenticated yet.
+#[derive(Clone, Copy)]
+struct AuthLimits {
+    timeout: Duration,
+    max_pending: usize,
+}
 
-/// At most this many connections are served at once (one thread each); a further one is
-/// answered with an error and closed.
-const MAX_CONNECTIONS: usize = 16;
+const AUTH_LIMITS: AuthLimits = AuthLimits { timeout: AUTH_TIMEOUT, max_pending: MAX_PENDING_AUTH };
 
-/// One of the [`MAX_CONNECTIONS`] places, held while a connection is served.
-struct Slot(Arc<AtomicUsize>);
+/// A connection that is still waiting to authenticate; dropping it frees its place.
+struct Pending(Arc<AtomicUsize>);
 
-impl Slot {
-    fn take(active: &Arc<AtomicUsize>) -> Option<Slot> {
-        active.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| (n < MAX_CONNECTIONS).then_some(n + 1)).ok().map(|_| Slot(active.clone()))
+impl Pending {
+    /// A place among the `max` waiting connections, or `None` when they are all taken.
+    fn claim(waiting: &Arc<AtomicUsize>, max: usize) -> Option<Pending> {
+        waiting.try_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < max).then_some(n + 1)).ok()?;
+        Some(Pending(Arc::clone(waiting)))
     }
 }
 
-impl Drop for Slot {
+impl Drop for Pending {
     fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::SeqCst);
+        self.0.fetch_sub(1, Ordering::AcqRel);
     }
 }
 
-/// The key file of a running control server; [`KeyFile::remove`] it when the window closes.
-pub struct KeyFile(PathBuf);
-
-impl KeyFile {
-    pub fn path(&self) -> &Path {
-        &self.0
+/// The secret of this run: the one the user chose (`--control-token`, `GRIDCRAFT_CONTROL_TOKEN`),
+/// else 256 random bits from the operating system, written to a file only the user can read.
+fn make_token(port: u16, chosen: Option<String>) -> std::io::Result<String> {
+    if let Some(t) = chosen.map(|t| t.trim().to_string()).filter(|t| !t.is_empty()) {
+        if t.len() < control_auth::MIN_TOKEN_LEN {
+            return Err(std::io::Error::other(format!("the control token must have at least {} characters", control_auth::MIN_TOKEN_LEN)));
+        }
+        eprintln!("gridcraft: control channel on 127.0.0.1:{port} requires the token you set (clients: GRIDCRAFT_CONTROL_TOKEN)");
+        return Ok(t);
     }
-    pub fn remove(&self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).map_err(|e| std::io::Error::other(format!("no random numbers for the control token: {e}")))?;
+    let token = control_auth::hex(&bytes);
+    let path = control_auth::write_token_file(port, &token)?;
+    eprintln!("gridcraft: control channel on 127.0.0.1:{port}; its token is in {} (gridcraft-cli reads it)", path.display());
+    Ok(token)
 }
 
-/// Bind `127.0.0.1:port`, write the key file into `settings` and serve. `Err` when the port
-/// cannot be bound or there is no random key (the control channel is off); the key file is
-/// `None` when it could not be written (requests are then refused).
-pub fn start(port: u16, ctx: egui::Context, settings: Option<&Path>) -> std::io::Result<(Receiver<ControlRequest>, Option<KeyFile>)> {
+pub fn start(port: u16, chosen_token: Option<String>, ctx: egui::Context) -> std::io::Result<Receiver<ControlRequest>> {
     let listener = TcpListener::bind(("127.0.0.1", port))?;
-    let key = random_key().map_err(|e| std::io::Error::other(format!("no random key: {e}")))?;
-    let key_file = match settings {
-        Some(dir) => {
-            let p = gridcraft_control_key::key_path(dir, port);
-            match write_key_file(&p, &key) {
-                Ok(()) => Some(KeyFile(p)),
-                Err(e) => {
-                    log::error!("control key file not written ({e}): requests will be refused");
-                    None
-                }
-            }
-        }
-        None => {
-            log::error!("no settings folder for the control key file: requests will be refused");
-            None
-        }
-    };
-    let rx = serve_on(listener, ctx, key, FIRST_REQUEST)?;
-    match &key_file {
-        Some(f) => log::info!("control channel listening on 127.0.0.1:{port}, key in {}", f.path().display()),
-        None => log::info!("control channel listening on 127.0.0.1:{port}"),
-    }
-    Ok((rx, key_file))
+    let token: Arc<str> = make_token(port, chosen_token)?.into();
+    let rx = serve_listener(listener, token, ctx)?;
+    log::info!("control channel listening on 127.0.0.1:{port}");
+    Ok(rx)
 }
 
-/// A new key: 32 random bytes from the operating system, as hex.
-fn random_key() -> Result<String, String> {
-    let mut b = [0u8; 32];
-    getrandom::fill(&mut b).map_err(|e| e.to_string())?;
-    Ok(b.iter().map(|x| format!("{x:02x}")).collect())
+/// Accept connections on `listener`; requests arrive on the returned receiver.
+fn serve_listener(listener: TcpListener, token: Arc<str>, ctx: egui::Context) -> std::io::Result<Receiver<ControlRequest>> {
+    serve_listener_with(listener, token, ctx, AUTH_LIMITS)
 }
 
-/// Write the key file: a stale one (from a run that did not exit cleanly) is replaced; on Unix
-/// the new file is created with mode 0600.
-fn write_key_file(p: &Path, key: &str) -> Result<(), String> {
-    if let Some(d) = p.parent() {
-        std::fs::create_dir_all(d).map_err(|e| format!("cannot create {}: {e}", d.display()))?;
-    }
-    let _ = std::fs::remove_file(p);
-    let mut open = std::fs::OpenOptions::new();
-    open.write(true).create_new(true);
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut open, 0o600);
-    let mut f = open.open(p).map_err(|e| format!("cannot create {}: {e}", p.display()))?;
-    f.write_all(key.as_bytes()).map_err(|e| format!("cannot write {}: {e}", p.display()))
-}
-
-/// Compare a key with the window's in time that does not depend on where they differ. An
-/// empty key never matches.
-fn keys_match(given: &str, key: &str) -> bool {
-    let (a, b) = (given.as_bytes(), key.as_bytes());
-    !b.is_empty() && a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
-}
-
-fn serve_on(listener: TcpListener, ctx: egui::Context, key: String, first: Duration) -> std::io::Result<Receiver<ControlRequest>> {
-    let (tx, rx) = channel::<ControlRequest>();
-    let key: Arc<str> = key.into();
-    let active = Arc::new(AtomicUsize::new(0));
+fn serve_listener_with(listener: TcpListener, token: Arc<str>, ctx: egui::Context, limits: AuthLimits) -> std::io::Result<Receiver<ControlRequest>> {
+    let (tx, rx) = channel();
+    let waiting = Arc::new(AtomicUsize::new(0));
     std::thread::Builder::new().name("control".into()).spawn(move || {
-        for mut stream in listener.incoming().flatten() {
-            let Some(slot) = Slot::take(&active) else {
-                let _ = writeln!(stream, "{}", json!({"ok": false, "error": "too many connections"}));
+        for stream in listener.incoming() {
+            let Ok(stream) = stream else {
+                // Out of sockets or handles: wait for some to free instead of spinning on the error.
+                std::thread::sleep(Duration::from_millis(50));
                 continue;
             };
-            let (tx, ctx, key) = (tx.clone(), ctx.clone(), key.clone());
-            // A thread that can't be made drops the connection (and its slot).
-            let _ = std::thread::Builder::new().name("control-conn".into()).spawn(move || {
-                let _slot = slot;
-                serve(stream, tx, ctx, &key, first)
-            });
+            // Dropping the stream closes it before anything is read.
+            let Some(place) = Pending::claim(&waiting, limits.max_pending) else { continue };
+            let tx = tx.clone();
+            let ctx = ctx.clone();
+            let token = Arc::clone(&token);
+            let _ =
+                std::thread::Builder::new().name("control-conn".into()).spawn(move || serve(stream, &token, tx, ctx, limits.timeout, Some(place)));
         }
     })?;
     Ok(rx)
 }
 
-/// The read side of a connection with an optional overall deadline: each read waits only for
-/// the time left, so blank lines, bad JSON or a slow drip of bytes cannot extend it.
-struct Timed {
-    s: TcpStream,
-    deadline: Option<Instant>,
+/// Read the connection's first line (at most [`control_auth::MAX_AUTH_LINE`] bytes, within
+/// `timeout` in total) and check the token. `true` when the peer may go on.
+#[allow(clippy::disallowed_methods)] // the desktop app (native only): wasm never runs it
+fn authenticate(reader: &mut BufReader<TcpStream>, out: &mut TcpStream, token: &str, timeout: Duration) -> bool {
+    let deadline = Instant::now().checked_add(timeout).unwrap_or_else(Instant::now);
+    let mut first = Vec::new();
+    let read = read_auth_line(reader, &mut first, deadline);
+    let verdict = match (read, std::str::from_utf8(&first)) {
+        (Ok(()), Ok(line)) if line.ends_with('\n') => control_auth::check_first_line(line, token),
+        _ => Err(json!({"ok": false, "error": "authentication required"})),
+    };
+    let allowed = verdict.is_ok();
+    let reply = verdict.unwrap_or_else(|e| e);
+    let _ = writeln!(out, "{reply}");
+    let _ = reader.get_ref().set_read_timeout(None);
+    allowed
 }
 
-impl Read for Timed {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if let Some(d) = self.deadline {
-            let left = d.checked_duration_since(Instant::now()).filter(|l| !l.is_zero()).ok_or(std::io::ErrorKind::TimedOut)?;
-            self.s.set_read_timeout(Some(left))?;
+/// Read the first line, at most [`control_auth::MAX_AUTH_LINE`] bytes, by `deadline`.
+///
+/// The timeout goes on the handle the reader reads: on Windows a `try_clone` of the stream keeps
+/// its own, so one set on the writing half never fired (a silent peer held its thread forever).
+/// It is shortened before every read, so a peer sending one byte at a time can't stretch it.
+#[allow(clippy::disallowed_methods)] // the desktop app (native only): wasm never runs it
+fn read_auth_line(reader: &mut BufReader<TcpStream>, line: &mut Vec<u8>, deadline: Instant) -> std::io::Result<()> {
+    let max = control_auth::MAX_AUTH_LINE;
+    while line.len() < max && line.last() != Some(&b'\n') {
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return Err(std::io::ErrorKind::TimedOut.into());
         }
-        self.s.read(buf)
-    }
-}
-
-impl Timed {
-    fn set_deadline(&mut self, d: Option<Instant>) {
-        self.deadline = d;
-        if d.is_none() {
-            let _ = self.s.set_read_timeout(None);
+        reader.get_ref().set_read_timeout(Some(left))?;
+        let buf = reader.fill_buf()?;
+        if buf.is_empty() {
+            break;
         }
+        let room = max.saturating_sub(line.len());
+        let take = buf.iter().take(room).position(|b| *b == b'\n').map_or(buf.len().min(room), |i| i + 1);
+        line.extend(buf.iter().take(take));
+        reader.consume(take);
     }
+    Ok(())
 }
 
-/// The next line (trimmed), `None` at the end of the stream or after a read error.
-fn read_line(r: &mut BufReader<Timed>) -> Option<Result<String, &'static str>> {
-    let mut buf = Vec::new();
-    let n = r.by_ref().take(MAX_LINE as u64 + 1).read_until(b'\n', &mut buf).ok()?;
+/// Read one `\n`-terminated line of at most `max` bytes into `buf` (newline stripped).
+/// `Ok(false)` at end of stream; `Err` when the line is too long or the read fails.
+fn read_bounded_line(reader: &mut impl BufRead, buf: &mut Vec<u8>, max: usize) -> Result<bool, String> {
+    buf.clear();
+    // `take` bounds the bytes buffered for one line: a peer can't make us allocate more than `max`.
+    let limit = u64::try_from(max).unwrap_or(u64::MAX).saturating_add(1);
+    let n = reader.take(limit).read_until(b'\n', buf).map_err(|e| e.to_string())?;
     if n == 0 {
-        return None;
+        return Ok(false);
     }
-    if buf.len() > MAX_LINE {
-        return Some(Err("line too long"));
+    if buf.last() == Some(&b'\n') {
+        buf.pop();
+        return Ok(true);
     }
-    Some(String::from_utf8(buf).map(|s| s.trim().to_string()).map_err(|_| "not UTF-8"))
+    if buf.len() > max {
+        return Err(format!("request too large (over {max} bytes); closing the connection"));
+    }
+    // Last line without a newline, then end of stream.
+    Ok(true)
 }
 
-/// Read and drop the rest of an oversize line, so closing the socket does not reset the
-/// connection before the client has read the error. At most 64 MiB, within 2 s.
-fn discard_rest_of_line(r: &mut BufReader<Timed>) {
-    r.get_mut().set_deadline(Some(Instant::now() + Duration::from_secs(2)));
-    let mut left: usize = 64 << 20;
-    while left > 0 {
-        let (used, done) = match r.fill_buf() {
-            Ok([]) | Err(_) => return,
-            Ok(b) => match b.iter().position(|&c| c == b'\n') {
-                Some(i) => (i + 1, true),
-                None => (b.len(), false),
-            },
-        };
-        r.consume(used);
-        if done {
-            return;
-        }
-        left = left.saturating_sub(used);
+/// One request line, parsed.
+enum Line {
+    Request {
+        id: Json,
+        method: String,
+        params: Json,
+    },
+    Blank,
+    /// Not a request: reply with this error and close the connection.
+    Reject(String),
+}
+
+fn parse_line(bytes: &[u8]) -> Line {
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return Line::Reject("not a control request (invalid UTF-8); closing the connection".into());
+    };
+    let text = text.trim();
+    if text.is_empty() {
+        return Line::Blank;
+    }
+    if is_http_request_line(text) {
+        return Line::Reject("HTTP is not served here: this port takes JSON lines; closing the connection".into());
+    }
+    let msg = match serde_json::from_str::<Json>(text) {
+        Ok(v) => v,
+        Err(e) => return Line::Reject(format!("invalid JSON ({e}); expected one JSON request object per line; closing the connection")),
+    };
+    let Some(obj) = msg.as_object() else {
+        return Line::Reject("not a control request (expected a JSON object); closing the connection".into());
+    };
+    let Some(method) = obj.get("method").and_then(Json::as_str) else {
+        return Line::Reject("not a control request (missing string `method`); closing the connection".into());
+    };
+    Line::Request {
+        id: obj.get("id").cloned().unwrap_or(Json::Null),
+        method: method.to_string(),
+        params: obj.get("params").cloned().unwrap_or(json!({})),
     }
 }
 
-fn serve(stream: TcpStream, tx: Sender<ControlRequest>, ctx: egui::Context, key: &str, first: Duration) {
+/// An HTTP/1 request line (`POST / HTTP/1.1`) or the HTTP/2 preface (`PRI * HTTP/2.0`).
+fn is_http_request_line(text: &str) -> bool {
+    const METHODS: [&str; 10] = ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH", "PRI"];
+    text.split_once(' ').is_some_and(|(method, _)| METHODS.contains(&method))
+        || text.rsplit_once(' ').is_some_and(|(_, version)| version.starts_with("HTTP/"))
+}
+
+fn serve(stream: TcpStream, token: &str, tx: Sender<ControlRequest>, ctx: egui::Context, auth_timeout: Duration, place: Option<Pending>) {
     let Ok(read) = stream.try_clone() else { return };
     let mut out = stream;
-    // One overall deadline from accept to the first authorised request; after it, none.
-    let mut reader = BufReader::new(Timed { s: read, deadline: Some(Instant::now() + first) });
-    let mut authorised = false;
-    // The key an `auth` request gave this connection.
-    let mut conn_key: Option<String> = None;
-    while let Some(line) = read_line(&mut reader) {
-        let line = match line {
-            Ok(l) => l,
-            Err(e) => {
-                let _ = writeln!(out, "{}", json!({"ok": false, "error": e}));
-                if e == "line too long" {
-                    discard_rest_of_line(&mut reader);
+    let mut reader = BufReader::new(read);
+    let allowed = authenticate(&mut reader, &mut out, token, auth_timeout);
+    // Authenticated or refused, the connection no longer counts as waiting.
+    drop(place);
+    if !allowed {
+        return;
+    }
+    let mut buf = Vec::new();
+    loop {
+        let reject = match read_bounded_line(&mut reader, &mut buf, MAX_LINE) {
+            Ok(false) => break,
+            // The peer is gone before sending a line: nobody to tell.
+            Err(_) if buf.is_empty() => break,
+            Err(e) => e,
+            Ok(true) => match parse_line(&buf) {
+                Line::Blank => continue,
+                Line::Reject(e) => e,
+                Line::Request { id, method, params } => {
+                    let (req, rx) = ControlRequest::new(method, params);
+                    let state = std::sync::Arc::clone(&req.state);
+                    if tx.send(req).is_err() {
+                        break;
+                    }
+                    // Wake the UI thread: egui only runs frames when something happens.
+                    ctx.request_repaint();
+                    let mut reply = rx.recv_timeout(Duration::from_secs(60)).unwrap_or_else(|_| {
+                        // Give up on the request as well as on its reply. While it is still
+                        // queued this keeps it from running late -- the client was told it had
+                        // failed, and an agent that retried after the error ran it twice (#1914);
+                        // if the app had already started it, its outcome is unknown instead.
+                        if ControlRequest::abandon(&state) {
+                            json!({"ok": false, "error": "timed out waiting for the UI (is the window minimised?)"})
+                        } else {
+                            json!({"ok": false, "error": "timed out waiting for the UI, which had already started the request, so it may still finish; its outcome is unknown"})
+                        }
+                    });
+                    if let Some(o) = reply.as_object_mut() {
+                        o.insert("id".into(), id);
+                    }
+                    if writeln!(out, "{reply}").is_err() {
+                        break;
+                    }
+                    continue;
                 }
-                break;
-            }
+            },
         };
-        if line.is_empty() {
-            continue;
-        }
-        let msg = match serde_json::from_str::<Json>(&line) {
-            Ok(m) => m,
-            // Close on a line that isn't JSON: an HTTP request (say, a web page's `fetch` to this
-            // port) starts with a request line that never parses, so it can't carry a command in
-            // its body, even before the key is checked.
-            Err(e) => {
-                let _ = writeln!(out, "{}", json!({"ok": false, "error": format!("invalid JSON: {e}; closing the connection")}));
-                break;
-            }
-        };
-        let id = msg.get("id").cloned().unwrap_or(Json::Null);
-        let method = msg.get("method").and_then(Json::as_str).unwrap_or("").to_string();
-        let params = msg.get("params").cloned().unwrap_or(json!({}));
-        // The top-level `key`; `auth` may carry it in its params. For other methods `params.key`
-        // is an ordinary parameter (`ui.key {"key": "Enter"}`).
-        let given = msg.get("key").and_then(Json::as_str).or_else(|| if method == "auth" { params.get("key").and_then(Json::as_str) } else { None });
-        let mut reply = |mut v: Json| -> bool {
-            if let Some(o) = v.as_object_mut() {
-                o.insert("id".into(), id.clone());
-            }
-            writeln!(out, "{v}").is_ok()
-        };
-        // Checked on every request.
-        let k = given.or(conn_key.as_deref()).unwrap_or("");
-        if !keys_match(k, key) {
-            let _ = reply(json!({"ok": false, "error": "unauthorized"}));
-            break;
-        }
-        if !authorised {
-            authorised = true;
-            reader.get_mut().set_deadline(None);
-        }
-        if method == "auth" {
-            conn_key = Some(k.to_string());
-            if !reply(json!({"ok": true, "result": {}})) {
-                break;
-            }
-            continue;
-        }
-        let (req, rrx) = ControlRequest::new(method, params);
-        if tx.send(req).is_err() {
-            break;
-        }
-        // Wake the UI thread: egui only runs frames when something happens.
-        ctx.request_repaint();
-        let r = rrx
-            .recv_timeout(Duration::from_secs(60))
-            .unwrap_or_else(|_| json!({"ok": false, "error": "timed out waiting for the UI (is the window minimised?)"}));
-        if !reply(r) {
-            break;
-        }
+        // The connection closes either way; a peer that can't read the reason loses nothing.
+        let _ = writeln!(out, "{}", json!({"ok": false, "error": reject}));
+        break;
     }
 }
 
@@ -274,282 +278,226 @@ fn serve(stream: TcpStream, tx: Sender<ControlRequest>, ctx: egui::Context, key:
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
-    use std::io::{BufRead, BufReader, Write};
-    use std::net::TcpStream;
 
-    const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const TOKEN: &str = "0123456789abcdef0123456789abcdef";
 
-    fn boot_with(first: Duration) -> (u16, Receiver<ControlRequest>) {
+    /// Authenticate a new connection, send `input`, and read reply lines (after the
+    /// authentication reply) until the server closes it.
+    fn exchange(addr: std::net::SocketAddr, input: &[u8]) -> Vec<Json> {
+        let mut c = TcpStream::connect(addr).unwrap();
+        c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        c.write_all(format!("{}\n", control_auth::auth_line(1, TOKEN)).as_bytes()).unwrap();
+        c.write_all(input).unwrap();
+        // A read timeout ends the list too: the server kept the connection open.
+        let mut replies: Vec<Json> = BufReader::new(c).lines().map_while(Result::ok).map(|l| serde_json::from_str(&l).unwrap()).collect();
+        assert_eq!(replies.first().map(|r| r["ok"].clone()), Some(json!(true)), "{replies:?}");
+        replies.remove(0);
+        replies
+    }
+
+    fn serve_on_loopback() -> (std::net::SocketAddr, Receiver<ControlRequest>) {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let port = listener.local_addr().unwrap().port();
-        (port, serve_on(listener, egui::Context::default(), KEY.to_string(), first).unwrap())
+        let addr = listener.local_addr().unwrap();
+        (addr, serve_listener(listener, TOKEN.into(), egui::Context::default()).unwrap())
     }
 
-    fn boot() -> (u16, Receiver<ControlRequest>) {
-        boot_with(FIRST_REQUEST)
-    }
-
-    /// Answer the next request that reaches the UI with `ok`, and return it.
-    fn answer(rx: &Receiver<ControlRequest>) -> ControlRequest {
-        let req = rx.recv_timeout(Duration::from_secs(5)).unwrap();
-        let _ = req.reply.send(json!({"ok": true, "result": {}}));
-        req
-    }
-
-    /// One connection, several lines.
-    struct Conn(BufReader<TcpStream>, TcpStream);
-
-    impl Conn {
-        fn open(port: u16) -> Self {
-            let s = TcpStream::connect(("127.0.0.1", port)).unwrap();
-            s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
-            Self(BufReader::new(s.try_clone().unwrap()), s)
-        }
-        fn send(&mut self, line: &str) {
-            writeln!(self.1, "{line}").unwrap();
-        }
-        fn recv(&mut self) -> Json {
-            let mut r = String::new();
-            let _ = self.0.read_line(&mut r);
-            serde_json::from_str(&r).unwrap_or_default()
-        }
-        fn call(&mut self, line: &str) -> Json {
-            self.send(line);
-            self.recv()
-        }
-        /// The server closed the connection.
-        fn closed(&mut self) -> bool {
-            let mut r = String::new();
-            matches!(self.0.read_line(&mut r), Ok(0))
-        }
+    /// A browser can POST to the port: its request line closes the connection before the JSON
+    /// line in its body is read, so nothing is dispatched.
+    #[test]
+    fn an_http_request_closes_the_connection_before_its_body_is_dispatched() {
+        let (addr, rx) = serve_on_loopback();
+        let http = b"POST / HTTP/1.1\r\nHost: 127.0.0.1:7979\r\nContent-Type: text/plain\r\n\r\n\
+            {\"id\":1,\"method\":\"engine.execute\",\"params\":{\"command\":\"cell.set\",\"params\":{\"cell\":\"A1\",\"input\":\"x\"}}}\n";
+        let replies = exchange(addr, http);
+        assert_eq!(replies.len(), 1, "{replies:?}");
+        assert!(replies[0]["error"].as_str().unwrap().contains("closing the connection"), "{replies:?}");
+        assert!(rx.try_recv().is_err(), "the body was dispatched");
     }
 
     #[test]
-    fn a_request_without_the_key_is_refused_and_closed() {
-        let (port, rx) = boot();
-        let mut c = Conn::open(port);
-        let r = c.call(r#"{"id":1,"method":"document.inspect"}"#);
-        assert_eq!((r["ok"].clone(), r["error"].clone(), r["id"].clone()), (json!(false), json!("unauthorized"), json!(1)));
-        assert!(c.closed());
-        assert!(rx.try_recv().is_err(), "nothing reached the UI");
-    }
-
-    #[test]
-    fn a_wrong_key_is_refused_and_closed() {
-        let (port, rx) = boot();
-        for key in ["nope", &KEY[..63], &format!("{KEY}0"), &KEY.to_uppercase()] {
-            let mut c = Conn::open(port);
-            assert_eq!(c.call(&format!(r#"{{"id":1,"key":"{key}","method":"document.inspect"}}"#))["error"], "unauthorized", "{key}");
-            assert!(c.closed());
-        }
-        assert!(rx.try_recv().is_err());
-    }
-
-    #[test]
-    fn the_key_on_each_request() {
-        let (port, rx) = boot();
-        let mut c = Conn::open(port);
-        c.send(&format!(r#"{{"id":7,"key":"{KEY}","method":"sheet.read","params":{{"range":"A1:B2"}}}}"#));
-        let req = answer(&rx);
-        assert_eq!((req.method.as_str(), &req.params), ("sheet.read", &json!({"range": "A1:B2"})));
-        let r = c.recv();
-        assert_eq!((r["ok"].clone(), r["id"].clone()), (json!(true), json!(7)));
-        // Every request needs it: one without the key is refused, also after good ones.
-        assert_eq!(c.call(r#"{"id":8,"method":"document.inspect"}"#)["error"], "unauthorized");
-        assert!(c.closed());
-    }
-
-    #[test]
-    fn auth_once_per_connection() {
-        let (port, rx) = boot();
-        let mut c = Conn::open(port);
-        assert_eq!(c.call(&format!(r#"{{"id":1,"method":"auth","key":"{KEY}"}}"#))["ok"], true);
-        for id in 2..4 {
-            c.send(&format!(r#"{{"id":{id},"method":"document.inspect"}}"#));
-            answer(&rx);
-            assert_eq!(c.recv()["ok"], true);
-        }
-        // `params.key` works for `auth` too.
-        let mut c = Conn::open(port);
-        assert_eq!(c.call(&format!(r#"{{"id":1,"method":"auth","params":{{"key":"{KEY}"}}}}"#))["ok"], true);
-        // A wrong key on an authenticated connection is still refused, and closes it.
-        assert_eq!(c.call(r#"{"id":2,"key":"nope","method":"document.inspect"}"#)["error"], "unauthorized");
-        assert!(c.closed());
-        // A failed auth closes the connection.
-        let mut c = Conn::open(port);
-        assert_eq!(c.call(r#"{"id":1,"method":"auth","key":"nope"}"#)["error"], "unauthorized");
-        assert!(c.closed());
-    }
-
-    #[test]
-    fn params_key_is_only_a_secret_for_auth() {
-        let (port, rx) = boot();
-        // `params.key` does not authenticate other methods.
-        let mut c = Conn::open(port);
-        assert_eq!(c.call(&format!(r#"{{"id":1,"method":"document.inspect","params":{{"key":"{KEY}"}}}}"#))["error"], "unauthorized");
-        // It is an ordinary parameter for them (`ui.key` presses a key).
-        let mut c = Conn::open(port);
-        c.send(&format!(r#"{{"id":1,"key":"{KEY}","method":"ui.key","params":{{"key":"Enter"}}}}"#));
-        let req = answer(&rx);
-        assert_eq!((req.method.as_str(), &req.params), ("ui.key", &json!({"key": "Enter"})));
-        assert_eq!(c.recv()["ok"], true);
-    }
-
-    #[test]
-    fn a_line_over_1_mib_is_refused_and_closed() {
-        let (port, rx) = boot();
-        let mut c = Conn::open(port);
-        let big = format!(r#"{{"id":1,"key":"{KEY}","method":"document.inspect","pad":"{}"}}"#, "x".repeat(MAX_LINE));
-        assert_eq!(c.call(&big)["error"], "line too long");
-        assert!(c.closed());
-        assert!(rx.try_recv().is_err());
-    }
-
-    #[test]
-    fn a_silent_connection_is_closed() {
-        let (port, rx) = boot_with(Duration::from_millis(300));
-        let mut quiet = Conn::open(port);
-        let t0 = Instant::now();
-        assert!(quiet.closed());
-        assert!(t0.elapsed() < Duration::from_secs(3));
-        // After an authorised request the connection may stay idle.
-        let mut busy = Conn::open(port);
-        assert_eq!(busy.call(&format!(r#"{{"id":1,"method":"auth","key":"{KEY}"}}"#))["ok"], true);
-        std::thread::sleep(Duration::from_millis(600));
-        busy.send(r#"{"id":2,"method":"document.inspect"}"#);
-        answer(&rx);
-        assert_eq!(busy.recv()["ok"], true);
-    }
-
-    #[test]
-    fn connections_are_capped() {
-        let (port, rx) = boot();
-        let mut held: Vec<Conn> = (0..MAX_CONNECTIONS).map(|_| Conn::open(port)).collect();
-        // Every place is taken: one more is refused and closed, and reaches nothing.
-        let mut extra = Conn::open(port);
-        let mut line = String::new();
-        let refused = match extra.0.read_line(&mut line) {
-            Ok(0) | Err(_) => true,
-            Ok(_) => line.contains("too many connections"),
-        };
-        assert!(refused, "{line}");
-        let _ = writeln!(extra.1, r#"{{"id":1,"key":"{KEY}","method":"document.inspect"}}"#);
-        assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
-        // A held connection still works; closing one frees its place.
-        let first = held.first_mut().unwrap();
-        first.send(&format!(r#"{{"id":2,"key":"{KEY}","method":"document.inspect"}}"#));
-        answer(&rx);
-        assert_eq!(first.recv()["ok"], true);
-        held.pop();
-        let t0 = Instant::now();
-        loop {
-            let mut c = Conn::open(port);
-            c.send(&format!(r#"{{"id":3,"key":"{KEY}","method":"document.inspect"}}"#));
-            if let Ok(req) = rx.recv_timeout(Duration::from_secs(1)) {
-                let _ = req.reply.send(json!({"ok": true, "result": {}}));
-                assert_eq!(c.recv()["ok"], true);
-                break;
+    fn a_line_that_is_not_a_request_closes_the_connection() {
+        let (addr, rx) = serve_on_loopback();
+        std::thread::spawn(move || {
+            for req in rx {
+                let _ = req.reply.send(json!({"ok": true}));
             }
-            assert!(t0.elapsed() < Duration::from_secs(10), "the freed place was never given back");
-            std::thread::sleep(Duration::from_millis(50));
+        });
+        let mut c = TcpStream::connect(addr).unwrap();
+        c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        c.write_all(format!("{}\n", control_auth::auth_line(1, TOKEN)).as_bytes()).unwrap();
+        c.write_all(b"{\"id\":1,\"method\":\"a\"}\r\n\n{\"id\":2,\"method\":\"b\"}\n").unwrap();
+        let mut r = BufReader::new(c);
+        let mut auth_reply = String::new();
+        r.read_line(&mut auth_reply).unwrap();
+        for id in [1, 2] {
+            let mut line = String::new();
+            r.read_line(&mut line).unwrap();
+            assert_eq!(serde_json::from_str::<Json>(&line).unwrap()["id"], id, "{line}");
+        }
+        for junk in [&b"hello\n"[..], b"[1,2]\n", b"{\"id\":1}\n", b"{\"method\":5}\n", b"\xff\xfe\n", b"GET /x HTTP/1.1\n"] {
+            let mut input = junk.to_vec();
+            input.extend_from_slice(b"{\"id\":2,\"method\":\"b\"}\n");
+            let replies = exchange(addr, &input);
+            assert_eq!(replies.len(), 1, "{replies:?}");
+            assert_eq!(replies[0]["ok"], false);
+        }
+        assert!(is_http_request_line("OPTIONS * HTTP/1.1"));
+        assert!(is_http_request_line("PRI * HTTP/2.0"));
+        assert!(!is_http_request_line("{\"method\":\"GET /\"}"));
+    }
+
+    #[test]
+    fn an_overlong_line_is_refused_without_reading_the_rest() {
+        let mut buf = Vec::new();
+        let long = [b'x'; 100];
+        let mut input: &[u8] = &long;
+        assert!(read_bounded_line(&mut input, &mut buf, 10).is_err());
+        assert_eq!(input.len(), 100 - 11, "the rest of the line is left unread");
+    }
+
+    /// A server on a loopback port with a stand-in UI that echoes each method.
+    fn spawn() -> std::net::SocketAddr {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (tx, rx) = channel::<ControlRequest>();
+        std::thread::spawn(move || {
+            for req in rx {
+                let _ = req.reply.send(json!({"ok": true, "result": req.method}));
+            }
+        });
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let tx = tx.clone();
+                std::thread::spawn(move || serve(stream, TOKEN, tx, egui::Context::default(), AUTH_TIMEOUT, None));
+            }
+        });
+        addr
+    }
+
+    fn lines(addr: std::net::SocketAddr, send: &str) -> Vec<Json> {
+        let mut c = TcpStream::connect(addr).unwrap();
+        c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        c.write_all(send.as_bytes()).unwrap();
+        // Replies up to the server closing the connection.
+        BufReader::new(c).lines().map_while(Result::ok).map(|l| serde_json::from_str(&l).unwrap()).collect()
+    }
+
+    #[test]
+    fn the_token_opens_the_connection() {
+        let addr = spawn();
+        let auth = control_auth::auth_line(1, TOKEN);
+        let mut c = TcpStream::connect(addr).unwrap();
+        c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        c.write_all(format!("{auth}\n{{\"id\":2,\"method\":\"ping\"}}\n").as_bytes()).unwrap();
+        let mut r = BufReader::new(c);
+        let mut line = String::new();
+        r.read_line(&mut line).unwrap();
+        assert_eq!(serde_json::from_str::<Json>(&line).unwrap()["ok"], json!(true));
+        line.clear();
+        r.read_line(&mut line).unwrap();
+        let v: Json = serde_json::from_str(&line).unwrap();
+        assert_eq!((v["id"].clone(), v["result"].clone()), (json!(2), json!("ping")));
+    }
+
+    #[test]
+    fn anything_but_the_token_first_closes_the_connection() {
+        let addr = spawn();
+        let wrong = control_auth::auth_line(1, "ffffffffffffffffffffffffffffffff");
+        for first in [wrong.as_str(), "{\"id\":1,\"method\":\"app.save\",\"params\":{\"path\":\"/tmp/x\"}}", "POST / HTTP/1.1", ""] {
+            // The second request is never served: one refusal, then end of stream.
+            let got = lines(addr, &format!("{first}\n{{\"id\":2,\"method\":\"ping\"}}\n"));
+            assert_eq!(got.len(), 1, "{first}: {got:?}");
+            assert_eq!(got[0]["ok"], json!(false), "{first}");
         }
     }
 
     #[test]
-    fn bad_json_closes_the_connection() {
-        let (port, rx) = boot();
-        let mut c = Conn::open(port);
-        let r = c.call("not json");
-        assert_eq!(r["ok"], false);
-        assert!(r["error"].as_str().unwrap_or("").starts_with("invalid JSON"), "{r}");
-        assert!(c.closed());
-        assert!(rx.try_recv().is_err());
+    fn an_unparsable_line_after_auth_closes_the_connection() {
+        let addr = spawn();
+        let auth = control_auth::auth_line(1, TOKEN);
+        let got = lines(addr, &format!("{auth}\nnot json\n{{\"id\":3,\"method\":\"ping\"}}\n"));
+        assert_eq!(got.len(), 2, "{got:?}");
+        assert_eq!(got[1]["ok"], json!(false));
     }
 
-    #[test]
-    fn http_request_cannot_smuggle_a_command() {
-        // What a web page's `fetch("http://127.0.0.1:<port>/", {method: "POST", body})` sends,
-        // even with the key in the body.
-        let (port, rx) = boot();
-        let body = format!("\n{{\"key\":\"{KEY}\",\"method\":\"app.save\",\"params\":{{\"path\":\"/tmp/x.xlsx\"}}}}\n");
-        let req = format!("POST / HTTP/1.1\r\nHost: 127.0.0.1:7979\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{body}", body.len());
-        let mut c = Conn::open(port);
-        c.1.write_all(req.as_bytes()).unwrap();
-        let _ = c.recv();
-        assert!(c.closed());
-        assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
-    }
-
-    #[test]
-    fn keys_compare_whole() {
-        assert!(keys_match(KEY, KEY));
-        assert!(!keys_match(KEY, &KEY[..63]));
-        assert!(!keys_match(&KEY[..63], KEY));
-        assert!(!keys_match(KEY, &KEY.replace('f', "e")));
-        assert!(!keys_match("", ""), "an empty key never matches");
-    }
-
-    #[test]
-    fn random_keys_are_256_bits() {
-        let (a, b) = (random_key().unwrap(), random_key().unwrap());
-        assert_eq!(a.len(), 64);
-        assert!(a.bytes().all(|c| c.is_ascii_hexdigit()));
-        assert_ne!(a, b);
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("gridcraft-control-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        dir
-    }
-
-    #[test]
-    fn the_key_file_is_written_after_the_bind_and_removed_on_exit() {
-        let dir = temp_dir("life");
-        // The port is taken: no key file.
-        let taken = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let port = taken.local_addr().unwrap().port();
-        assert!(start(port, egui::Context::default(), Some(&dir)).is_err());
-        assert!(!dir.exists() || std::fs::read_dir(&dir).unwrap().next().is_none(), "no key file after a failed bind");
-        drop(taken);
-        // Bound: the key file holds the key that opens the port.
-        let (rx, key_file) = start(port, egui::Context::default(), Some(&dir)).unwrap();
-        let key_file = key_file.unwrap();
-        assert_eq!(key_file.path(), gridcraft_control_key::key_path(&dir, port));
-        let key = std::fs::read_to_string(key_file.path()).unwrap();
-        assert_eq!(key.len(), 64);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            assert_eq!(std::fs::metadata(key_file.path()).unwrap().permissions().mode() & 0o777, 0o600);
+    /// Whether the server closed `c` (end of stream, or a refusal and then end of stream) within
+    /// `within`, and how long it took.
+    #[allow(clippy::disallowed_methods)] // a native-only test of the desktop app
+    fn closed_within(c: TcpStream, within: Duration) -> (bool, Duration) {
+        let start = Instant::now();
+        c.set_read_timeout(Some(within)).unwrap();
+        let mut r = BufReader::new(c);
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match r.read_line(&mut line) {
+                Ok(0) => return (true, start.elapsed()),
+                Ok(_) => continue,
+                Err(e) if matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => return (false, start.elapsed()),
+                Err(_) => return (true, start.elapsed()),
+            }
         }
-        let mut c = Conn::open(port);
-        c.send(&format!(r#"{{"id":1,"key":"{key}","method":"document.inspect"}}"#));
-        answer(&rx);
-        assert_eq!(c.recv()["ok"], true);
-        key_file.remove();
-        assert!(!key_file.path().exists());
-        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The token deadline is for the whole first line: neither a silent peer nor one sending a
+    /// byte at a time keeps the connection (and its thread) past it.
+    #[test]
+    fn a_silent_or_slow_peer_is_closed_at_the_auth_deadline() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let limits = AuthLimits { timeout: Duration::from_millis(300), max_pending: MAX_PENDING_AUTH };
+        let _rx = serve_listener_with(listener, TOKEN.into(), egui::Context::default(), limits).unwrap();
+
+        let silent = TcpStream::connect(addr).unwrap();
+        let mut slow = TcpStream::connect(addr).unwrap();
+        let mut drip = slow.try_clone().unwrap();
+        std::thread::spawn(move || {
+            for b in control_auth::auth_line(1, TOKEN).bytes() {
+                if drip.write_all(&[b]).is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let (closed, took) = closed_within(silent, Duration::from_secs(5));
+        assert!(closed && took < Duration::from_secs(3), "silent peer kept for {took:?}");
+        let (closed, took) = closed_within(slow.try_clone().unwrap(), Duration::from_secs(5));
+        assert!(closed && took < Duration::from_secs(3), "byte-at-a-time peer kept for {took:?}");
+        let _ = slow.flush();
+    }
+
+    /// Peers without the token can't pile up threads: past the cap a new connection is closed at
+    /// once, and a waiting one that authenticates frees its place.
+    #[test]
+    fn connections_waiting_to_authenticate_are_capped() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let limits = AuthLimits { timeout: Duration::from_secs(20), max_pending: 2 };
+        let _rx = serve_listener_with(listener, TOKEN.into(), egui::Context::default(), limits).unwrap();
+
+        let mut first = TcpStream::connect(addr).unwrap();
+        let _second = TcpStream::connect(addr).unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        let (closed, took) = closed_within(TcpStream::connect(addr).unwrap(), Duration::from_secs(5));
+        assert!(closed && took < Duration::from_secs(3), "a third waiting connection was kept");
+
+        first.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        first.write_all(format!("{}\n", control_auth::auth_line(1, TOKEN)).as_bytes()).unwrap();
+        let mut reply = String::new();
+        BufReader::new(first.try_clone().unwrap()).read_line(&mut reply).unwrap();
+        assert_eq!(serde_json::from_str::<Json>(&reply).unwrap()["ok"], json!(true), "{reply}");
+        std::thread::sleep(Duration::from_millis(200));
+        let mut next = TcpStream::connect(addr).unwrap();
+        next.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        next.write_all(format!("{}\n", control_auth::auth_line(1, TOKEN)).as_bytes()).unwrap();
+        let mut reply = String::new();
+        BufReader::new(next).read_line(&mut reply).unwrap();
+        assert_eq!(serde_json::from_str::<Json>(&reply).unwrap()["ok"], json!(true), "a freed place was not reused: {reply}");
     }
 
     #[test]
-    fn a_stale_key_file_is_replaced() {
-        let dir = temp_dir("stale");
-        std::fs::create_dir_all(&dir).unwrap();
-        let p = dir.join("control-key.test");
-        std::fs::write(&p, "old").unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o644)).unwrap();
-        }
-        write_key_file(&p, KEY).unwrap();
-        assert_eq!(std::fs::read_to_string(&p).unwrap(), KEY);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            assert_eq!(std::fs::metadata(&p).unwrap().permissions().mode() & 0o777, 0o600);
-        }
-        let _ = std::fs::remove_dir_all(&dir);
+    fn a_chosen_token_must_be_long_enough() {
+        assert!(make_token(1, Some("short".into())).is_err());
+        assert_eq!(make_token(1, Some(format!(" {TOKEN} "))).unwrap(), TOKEN);
     }
 }

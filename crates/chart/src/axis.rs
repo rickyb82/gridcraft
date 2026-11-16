@@ -25,9 +25,11 @@ impl Scale {
         (0..=n)
             .map(|i| {
                 let v = self.min + i as f64 * self.step;
-                // Snap away accumulated float error.
+                // Snap away accumulated float error, but only onto a multiple of the step that is
+                // really that close: a `min` off the step grid must keep its own ticks.
                 let snapped = (v / self.step).round() * self.step;
-                if snapped.abs() < self.step * 1e-9 { 0.0 } else { snapped }
+                let v = if (snapped - v).abs() < self.step * 1e-9 { snapped } else { v };
+                if v.abs() < self.step * 1e-9 { 0.0 } else { v }
             })
             .collect()
     }
@@ -107,11 +109,6 @@ pub fn nice_scale(lo: f64, hi: f64, force_zero: bool) -> Scale {
     Scale { min, max, step }
 }
 
-/// Exact fixed scale (100% stacked axes).
-pub(crate) fn fixed_scale(min: f64, max: f64, step: f64) -> Scale {
-    Scale { min, max, step }
-}
-
 /// A number format prepared once and reused for many labels.
 pub(crate) struct Fmt {
     general: bool,
@@ -122,7 +119,7 @@ impl Fmt {
     pub fn new(code: &str) -> Fmt {
         let t = code.trim();
         let general = t.is_empty() || t.eq_ignore_ascii_case("general");
-        Fmt { general, fmt: NumberFormat::parse(if general { "General" } else { t }) }
+        Fmt { general, fmt: NumberFormat::parse_cached(if general { "General" } else { t }) }
     }
     /// Formats `v`; `step` (axis labels) fixes the decimals for General.
     pub fn format(&self, v: f64, step: Option<f64>) -> String {

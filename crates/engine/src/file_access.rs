@@ -469,7 +469,10 @@ pub(crate) mod tests {
         for path in files {
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             let allowed = path == src.join("io.rs") || path == src.join("file_access.rs") || path == src.join("cmd").join("spelling.rs");
-            if allowed || name.starts_with("tests") {
+            // Test modules (`tests.rs`, anything under a `tests/` folder) build their own fixtures.
+            let test_module =
+                name.starts_with("tests") || path.strip_prefix(&src).is_ok_and(|rel| rel.components().any(|c| c.as_os_str() == "tests"));
+            if allowed || test_module {
                 continue;
             }
             let text = std::fs::read_to_string(&path).unwrap();

@@ -1021,6 +1021,472 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Show" => "Mostra",
         "Collapse dialog" => "Comprimi finestra di dialogo",
         "Expand dialog" => "Espandi finestra di dialogo",
+        "A table can't overlap another table." => "Una tabella non può sovrapporsi a un'altra tabella.",
+        "A workbook must contain at least one visible worksheet." => "Una cartella di lavoro deve contenere almeno un foglio di lavoro visibile.",
+        "Account" => "Account",
+        "Add Step" => "Aggiungi passaggio",
+        "Add a step after the selected one" => "Aggiungi un passaggio dopo quello selezionato",
+        "Advanced" => "Avanzate",
+        "Advanced Filter" => "Filtro avanzato",
+        "All sheets" => "Tutti i fogli",
+        "And:" => "E:",
+        "Anova needs at least two groups, each with at least one number." => {
+            "L'analisi della varianza richiede almeno due gruppi, ciascuno con almeno un numero."
+        }
+        "Anova needs at least two rows and two columns of numbers." => "L'analisi della varianza richiede almeno due righe e due colonne di numeri.",
+        "Anova needs at least two samples and two columns of numbers." => {
+            "L'analisi della varianza richiede almeno due campioni e due colonne di numeri."
+        }
+        "Anova: Two-Factor With Replication" => "Analisi varianza: a due fattori con replica",
+        "Anova: Two-Factor Without Replication" => "Analisi varianza: a due fattori senza replica",
+        "Arrange" => "Disponi",
+        "Arrange\nAll" => "Disponi\ntutto",
+        "Arrange All" => "Disponi tutto",
+        "Arrange Windows" => "Disponi finestre",
+        "Assign Action" => "Assegna azione",
+        "Auto Fill Options" => "Opzioni di riempimento automatico",
+        "AutoSave: save after every change (workbooks saved to a file)" => {
+            "Salvataggio automatico: salva dopo ogni modifica (cartelle di lavoro salvate in un file)"
+        }
+        "Bernoulli" => "Bernoulli",
+        "Between:" => "Tra:",
+        "Binomial" => "Binomiale",
+        "CHF German (Switzerland)" => "CHF Tedesco (Svizzera)",
+        "Cascade" => "A cascata",
+        "Cell must contain a formula." => "La cella deve contenere una formula.",
+        "Cell must contain a value." => "La cella deve contenere un valore.",
+        "Check" => "Verifica",
+        "Check for\nUpdates…" => "Cerca\naggiornamenti…",
+        "Check the inputs and show on the grid what the macro would change" => "Verifica gli input e mostra sulla griglia cosa cambierebbe la macro",
+        "Click to copy" => "Fai clic per copiare",
+        "Close the macro step editor first: it keeps its window until it closes itself, so its steps and debug run are not lost." => {
+            "Chiudi prima l'editor dei passaggi della macro: la sua finestra resta aperta finché non la chiudi, così i passaggi e l'esecuzione di debug non vanno persi."
+        }
+        "Column width must be between 0 and 1800 pixels." => "La larghezza delle colonne deve essere compresa tra 0 e 1800 pixel.",
+        "Column width must be between 0 and 255 characters." => "La larghezza delle colonne deve essere compresa tra 0 e 255 caratteri.",
+        "Constraint Cell Reference" => "Riferimento cella del vincolo",
+        "Constraint Operator" => "Operatore del vincolo",
+        "Constraint Value" => "Valore del vincolo",
+        "Constraint cells must be on the objective cell's sheet." => "Le celle dei vincoli devono trovarsi nel foglio della cella obiettivo.",
+        "Context" => "Contesto",
+        "Continue" => "Continua",
+        "Convert to Number" => "Converti in numero",
+        "Copies" => "Copie",
+        "Copy matching rows elsewhere" => "Copia le righe corrispondenti in un'altra posizione",
+        "Copy to:" => "Copia in:",
+        "Count Numbers" => "Conteggio numeri",
+        "Criteria range (optional):" => "Intervallo criteri (facoltativo):",
+        "Data Table: No Legend Keys" => "Tabella dati: senza simboli della legenda",
+        "Data Table: None" => "Tabella dati: nessuna",
+        "Data Table: With Legend Keys" => "Tabella dati: con simboli della legenda",
+        "Delete columns" => "Elimina colonne",
+        "Delete the selected step" => "Elimina il passaggio selezionato",
+        "Discrete" => "Discreta",
+        "Display options for this workbook" => "Opzioni di visualizzazione per questa cartella di lavoro",
+        "Distribution:" => "Distribuzione:",
+        "Duplicate" => "Duplica",
+        "Duplicate the selected step" => "Duplica il passaggio selezionato",
+        "Each input range needs at least one number." => "Ogni intervallo di input deve contenere almeno un numero.",
+        "Each input range needs at least two numbers." => "Ogni intervallo di input deve contenere almeno due numeri.",
+        "Each number is repeated, then the whole sequence; together they set how many values are written." => {
+            "Ogni numero viene ripetuto, poi viene ripetuta l'intera sequenza: insieme, le due ripetizioni determinano quanti valori vengono scritti."
+        }
+        "Edit Equation" => "Modifica equazione",
+        "Edit Hyperlink…" => "Modifica collegamento ipertestuale…",
+        "Error checking options" => "Opzioni di controllo errori",
+        "Excel 97-2003 (.xls) is supported for import only. Save as .xlsx or another supported export format." => {
+            "Il formato Excel 97-2003 (.xls) è supportato solo per l'importazione. Salva come .xlsx o in un altro formato di esportazione supportato."
+        }
+        "Expand the editor" => "Espandi l'editor",
+        "Exporting needs a file picker, which this window doesn't have." => {
+            "Per esportare serve un selettore di file, non disponibile in questa finestra."
+        }
+        "Finding printers…" => "Ricerca delle stampanti…",
+        "Fit selection" => "Adatta alla selezione",
+        "Forecast start (a date or number in the history; blank: after the last point):" => {
+            "Inizio previsione (data o numero nello storico; vuoto: dopo l'ultimo punto):"
+        }
+        "Form Control" => "Controllo modulo",
+        "Format Chart Area…" => "Formato area del grafico…",
+        "Format Control" => "Formato controllo",
+        "Fourier Analysis" => "Analisi di Fourier",
+        "From:" => "Da:",
+        "Grayscale" => "Scala di grigi",
+        "Header (&L left, &C center, &R right; &P page, &N pages, &D date, &A sheet):" => {
+            "Intestazione (&L sinistra, &C centro, &R destra; &P pagina, &N numero pagine, &D data, &A foglio):"
+        }
+        "Hyperlink" => "Collegamento ipertestuale",
+        "In steps of:" => "Con incrementi di:",
+        "Input Y range and input X range must have the same number of rows." => {
+            "Gli intervalli Y e X di input devono avere lo stesso numero di righe."
+        }
+        "Input Y range must be a single column." => "L'intervallo Y di input deve essere costituito da una sola colonna.",
+        "Input cell reference is not valid." => "Il riferimento alla cella di input non è valido.",
+        "Input range contains non-numeric data." => "L'intervallo di input contiene dati non numerici.",
+        "Input range must be a single row or column." => "L'intervallo di input deve essere costituito da una sola riga o colonna.",
+        "Input range must hold numbers or complex numbers such as 3+4i." => {
+            "L'intervallo di input deve contenere numeri o numeri complessi come 3+4i."
+        }
+        "Input ranges must have the same number of values." => "Gli intervalli di input devono avere lo stesso numero di valori.",
+        "Insert Control" => "Inserisci controllo",
+        "Insert Cut Cells works on whole rows or columns; cut whole rows or columns, or use Paste." => {
+            "Inserisci celle tagliate funziona solo su righe o colonne intere: taglia righe o colonne intere oppure usa Incolla."
+        }
+        "Insert Equation" => "Inserisci equazione",
+        "Insert Function…" => "Inserisci funzione…",
+        "Insert an equation, or pick one from the gallery" => "Inserisci un'equazione o scegline una dalla raccolta",
+        "Insert columns" => "Inserisci colonne",
+        "Integer and binary constraints must be on variable cells." => "I vincoli di tipo intero e binario devono riguardare celle variabili.",
+        "Inverse" => "Trasformata inversa",
+        "Labels in first row and first column" => "Etichette nella prima riga e nella prima colonna",
+        "Lambda must be greater than 0 and at most 100000." => "Lambda deve essere maggiore di 0 e non superiore a 100000.",
+        "Lambda:" => "Lambda:",
+        "Left to right" => "Da sinistra a destra",
+        "Licence" => "Licenza",
+        "List range:" => "Intervallo elenco:",
+        "Load Model reads a model of the active sheet." => "Carica modello legge solo i modelli del foglio attivo.",
+        "Load Model reads a model saved on the active sheet." => "Carica modello legge solo i modelli salvati nel foglio attivo.",
+        "Locking cells or hiding formulas has no effect until you protect the worksheet (Review › Protect Sheet)." => {
+            "Bloccare le celle o nascondere le formule non ha effetto finché non proteggi il foglio di lavoro (Revisione › Proteggi foglio)."
+        }
+        "Look for a newer GridCraft release" => "Cerca una versione più recente di GridCraft",
+        "Macro" => "Macro",
+        "Macro Options" => "Opzioni macro",
+        "Maximum Change must be a number of 0 or more." => "La variazione massima deve essere un numero maggiore o uguale a 0.",
+        "Maximum Change:" => "Variazione massima:",
+        "Maximum Iterations must be a whole number from 1 to 32767." => {
+            "Il numero massimo di iterazioni deve essere un numero intero compreso tra 1 e 32767."
+        }
+        "Maximum Iterations:" => "Numero massimo di iterazioni:",
+        "Mean:" => "Media:",
+        "More Functions…" => "Altre funzioni…",
+        "More Table Styles" => "Altri stili tabella",
+        "Most Recently Used" => "Usate di recente",
+        "Move or Copy…" => "Sposta o copia…",
+        "Multi-cell array formulas aren't allowed in tables." => "Le formule matrice su più celle non sono consentite nelle tabelle.",
+        "New\nWindow" => "Nuova\nfinestra",
+        "New Window" => "Nuova finestra",
+        "New range for the table:" => "Nuovo intervallo per la tabella:",
+        "No Color" => "Nessun colore",
+        "No cells were found." => "Nessuna cella trovata.",
+        "No dictionary is available on this system (GridCraft uses the system word list)." => {
+            "Nessun dizionario disponibile nel sistema (GridCraft usa l'elenco di parole del sistema)."
+        }
+        "No functions match." => "Nessuna funzione corrispondente.",
+        "No macro is being debugged. Start one with action: start." => "Nessuna macro in fase di debug. Avviane una con action: start.",
+        "No printers found. Configure a system printer or export a PDF." => {
+            "Nessuna stampante trovata. Configura una stampante di sistema o esporta un PDF."
+        }
+        "No sheets are hidden." => "Non ci sono fogli nascosti.",
+        "Nothing to import." => "Niente da importare.",
+        "Nothing to paste." => "Niente da incollare.",
+        "Number Stored as Text" => "Numero memorizzato come testo",
+        "Number of Random Numbers:" => "Quantità di numeri casuali:",
+        "Number of Samples:" => "Numero di campioni:",
+        "Number of Variables:" => "Numero di variabili:",
+        "Number of trials:" => "Numero di prove:",
+        "ODS is supported for data import only. Save as .xlsx or another supported export format." => {
+            "Il formato ODS è supportato solo per l'importazione dei dati. Salva come .xlsx o in un altro formato di esportazione supportato."
+        }
+        "One-sided" => "Solo fronte",
+        "Open Hyperlink" => "Apri collegamento ipertestuale",
+        "Or select a category:" => "Oppure seleziona una categoria:",
+        "Outline Settings" => "Impostazioni struttura",
+        "Paste List" => "Incolla elenco",
+        "Paste Name" => "Incolla nome",
+        "Paste Names…" => "Incolla nomi…",
+        "Paste formulas that refer to the copied cells" => "Incolla formule che fanno riferimento alle celle copiate",
+        "Paste name" => "Incolla nome",
+        "Patterned" => "A schema",
+        "Period:" => "Periodo:",
+        "Periodic" => "Periodico",
+        "Pick up a format first." => "Copia prima un formato.",
+        "Platform" => "Piattaforma",
+        "Poisson" => "Poisson",
+        "Print failed: the printing worker stopped." => "Stampa non riuscita: il servizio di stampa si è interrotto.",
+        "Print failed: {error}" => "Stampa non riuscita: {error}",
+        "Print job submitted." => "Processo di stampa inviato.",
+        "Print job submitted: {receipt}" => "Processo di stampa inviato: {receipt}",
+        "Printer" => "Stampante",
+        "Printer default" => "Impostazione predefinita della stampante",
+        "Printer discovery failed." => "Ricerca delle stampanti non riuscita.",
+        "Product Information" => "Informazioni sul prodotto",
+        "Protect workbook for: Structure (sheets can't be added, moved, renamed, hidden or deleted)." => {
+            "Proteggi la cartella di lavoro per: struttura (non è possibile aggiungere, spostare, rinominare, nascondere o eliminare fogli)."
+        }
+        "R$ Portuguese (Brazil)" => "R$ Portoghese (Brasile)",
+        "Random" => "Casuale",
+        "Random Number Generation" => "Generazione di numeri casuali",
+        "Random Seed (blank for a new sequence):" => "Valore di inizializzazione (vuoto per una nuova sequenza):",
+        "Range:" => "Intervallo:",
+        "Reading direction" => "Direzione di lettura",
+        "Record steps relative to the cells selected when recording starts, so the macro works on other data" => {
+            "Registra i passaggi rispetto alle celle selezionate all'inizio della registrazione, così la macro funziona anche su altri dati"
+        }
+        "Reference isn't valid." => "Il riferimento non è valido.",
+        "Refresh printers" => "Aggiorna stampanti",
+        "Remove Hyperlink" => "Rimuovi collegamento ipertestuale",
+        "Remove this parameter" => "Rimuovi questo parametro",
+        "Rename" => "Rinomina",
+        "Repeating each number (times):" => "Ripeti ogni numero (volte):",
+        "Repeating each sequence (times):" => "Ripeti ogni sequenza (volte):",
+        "Resize\nTable" => "Ridimensiona\ntabella",
+        "Resize Table" => "Ridimensiona tabella",
+        "Resize formula bar" => "Ridimensiona barra della formula",
+        "Return to the original worksheet to insert this picture, or cancel and choose another cell." => {
+            "Torna al foglio di lavoro originale per inserire questa immagine oppure annulla e scegli un'altra cella."
+        }
+        "Right to left" => "Da destra a sinistra",
+        "Row height (points):" => "Altezza riga (punti):",
+        "Row height must be between 0 and 409.5 points." => "L'altezza delle righe deve essere compresa tra 0 e 409,5 punti.",
+        "Row height must be between 0 and 546 pixels (409.5 points)." => {
+            "L'altezza delle righe deve essere compresa tra 0 e 546 pixel (409,5 punti)."
+        }
+        "Rows per sample must be a whole number of at least 2 that divides the number of data rows." => {
+            "Le righe per campione devono essere un numero intero, almeno 2, che divida esattamente il numero di righe di dati."
+        }
+        "Rows per sample:" => "Righe per campione:",
+        "Rp Indonesian" => "Rp Indonesiano",
+        "Run" => "Esegui",
+        "Run a macro on the selection" => "Esegui una macro sulla selezione",
+        "Run the current step" => "Esegui il passaggio corrente",
+        "Run the macro as one undo step" => "Esegui la macro come un'unica operazione annullabile",
+        "Run to Here" => "Esegui fino a qui",
+        "Run to the next breakpoint or the end" => "Esegui fino al punto di interruzione successivo o alla fine",
+        "Run until the selected step" => "Esegui fino al passaggio selezionato",
+        "SYLK (.slk) is supported for import only. Save as .xlsx or another supported export format." => {
+            "Il formato SYLK (.slk) è supportato solo per l'importazione. Salva come .xlsx o in un altro formato di esportazione supportato."
+        }
+        "Sampling" => "Campionamento",
+        "Sampling Method:" => "Metodo di campionamento:",
+        "Save Macro" => "Salva macro",
+        "Save Model needs each side of a constraint to be one range." => {
+            "Per Salva modello ogni membro di un vincolo deve essere un unico intervallo."
+        }
+        "Scroll ribbon left" => "Scorri la barra multifunzione a sinistra",
+        "Select All Sheets" => "Seleziona tutti i fogli",
+        "Select Data…" => "Seleziona dati…",
+        "Select a cell inside a table first, or pass `table`." => "Seleziona prima una cella all'interno di una tabella oppure specifica `table`.",
+        "Select a printer" => "Seleziona una stampante",
+        "Select a timeline column and a values column for the forecast." => {
+            "Seleziona una colonna della sequenza temporale e una colonna dei valori per la previsione."
+        }
+        "Select data for the chart first." => "Seleziona prima i dati per il grafico.",
+        "Select locked cells" => "Seleziona celle bloccate",
+        "Select unlocked cells" => "Seleziona celle sbloccate",
+        "Settings" => "Impostazioni",
+        "Show Details" => "Mostra dettagli",
+        "Show horizontal scroll bar" => "Mostra barra di scorrimento orizzontale",
+        "Show matching rows in place" => "Mostra le righe corrispondenti nella posizione originale",
+        "Show sheet tabs" => "Mostra schede dei fogli",
+        "Show vertical scroll bar" => "Mostra barra di scorrimento verticale",
+        "Solver could not find an optimal basis for the Sensitivity report." => {
+            "Solver non è riuscito a trovare una base ottimale per il report di sensibilità."
+        }
+        "Solver ran out of evaluations." => "Solver ha raggiunto il numero massimo di valutazioni.",
+        "Source:" => "Origine:",
+        "Split tabs" => "Divisore schede",
+        "Standard deviation:" => "Deviazione standard:",
+        "Start debugging: stop before the first step" => "Avvia il debug: si ferma prima del primo passaggio",
+        "Step" => "Avanza",
+        "Stop Action runs on its own, not as a step of a script or macro." => {
+            "Interrompi azione va eseguito da solo, non come passaggio di uno script o di una macro."
+        }
+        "Stop debugging" => "Interrompi il debug",
+        "Stop recording and save the macro" => "Interrompi la registrazione e salva la macro",
+        "Submitting print job…" => "Invio del processo di stampa…",
+        "Summary columns to right of detail" => "Colonne di riepilogo a destra dei dettagli",
+        "Summary rows below detail" => "Righe di riepilogo sotto i dettagli",
+        "Switch\nWindows" => "Cambia\nfinestra",
+        "Switch Windows" => "Cambia finestra",
+        "Tab Color" => "Colore scheda",
+        "That undo group has already ended." => "Quel gruppo di annullamento è già terminato.",
+        "The Evolutionary method needs a lower and an upper bound on every variable cell (constraints such as \"A1:A3 <= 10\"), or requireBounds: false." => {
+            "Il metodo evolutivo richiede un limite inferiore e uno superiore per ogni cella variabile (vincoli come \"A1:A3 <= 10\"), oppure requireBounds: false."
+        }
+        "The Limits report doesn't apply to models with integer or binary constraints." => {
+            "Il report dei limiti non si applica ai modelli con vincoli di tipo intero o binario."
+        }
+        "The Limits report is available for Simplex LP and GRG Nonlinear." => "Il report dei limiti è disponibile per Simplex LP e GRG non lineare.",
+        "The Sensitivity report needs an optimal solution: these values are not optimal for the model. Solve it first." => {
+            "Il report di sensibilità richiede una soluzione ottimale: questi valori non sono ottimali per il modello. Risolvi prima il modello."
+        }
+        "The Sensitivity report needs the values at the Simplex LP solution: these values are another optimal solution, whose ranges differ. Solve the model with Simplex LP first." => {
+            "Il report di sensibilità richiede i valori della soluzione Simplex LP: questi valori sono un'altra soluzione ottimale, con intervalli diversi. Risolvi prima il modello con Simplex LP."
+        }
+        "The Sensitivity report of this nonlinear model has too many binding constraints to work out in reasonable time." => {
+            "Questo modello non lineare ha troppi vincoli attivi per calcolarne il report di sensibilità in tempi ragionevoli."
+        }
+        "The X variables are collinear; the regression can't be computed." => {
+            "Le variabili X sono collineari: non è possibile calcolare la regressione."
+        }
+        "The bin range holds no numbers." => "L'intervallo classi non contiene numeri.",
+        "The cell has no formula." => "La cella non contiene una formula.",
+        "The cell or chart you're trying to change is on a protected sheet." => {
+            "La cella o il grafico che stai cercando di modificare si trova in un foglio protetto."
+        }
+        "The cell you are trying to change is on a protected sheet that does not allow selecting it." => {
+            "La cella che stai cercando di modificare si trova in un foglio protetto che non ne consente la selezione."
+        }
+        "The cell you're trying to change is on a protected sheet." => "La cella che stai cercando di modificare si trova in un foglio protetto.",
+        "The consolidated data doesn't fit below and right of the destination." => {
+            "Non c'è spazio sufficiente per i dati consolidati sotto e a destra della destinazione."
+        }
+        "The constraint's two sides must be the same size (or the right side one cell)." => {
+            "I due membri del vincolo devono avere le stesse dimensioni (oppure il membro destro deve essere una sola cella)."
+        }
+        "The copied cells don't fit here: paste them where the whole copied area fits on the sheet." => {
+            "Le celle copiate non rientrano qui: incollale in un punto in cui l'intera area copiata rientri nel foglio."
+        }
+        "The copied cells don't fit on the sheet at this position." => "Le celle copiate non rientrano nel foglio in questa posizione.",
+        "The copied sheet no longer exists." => "Il foglio copiato non esiste più.",
+        "The copy area is the whole sheet; there is no room to insert it." => "L'area copiata è l'intero foglio: non c'è spazio per inserirla.",
+        "The cut rows or columns can't be inserted inside themselves." => {
+            "Le righe o le colonne tagliate non possono essere inserite al proprio interno."
+        }
+        "The damping factor must be between 0 and 1." => "Il fattore di smorzamento deve essere compreso tra 0 e 1.",
+        "The data has more fields than a sheet has columns." => "I dati contengono più campi delle colonne disponibili in un foglio.",
+        "The data has more rows than a sheet has." => "I dati contengono più righe di quelle disponibili in un foglio.",
+        "The distribution could not be tabulated." => "Non è stato possibile tabulare la distribuzione.",
+        "The extract range can't overlap the list range." => "L'intervallo di estrazione non può sovrapporsi all'intervallo elenco.",
+        "The file is empty." => "Il file è vuoto.",
+        "The fill is too large." => "Il riempimento è troppo grande.",
+        "The forecast end must be after the last point of the timeline." => {
+            "La fine della previsione deve essere successiva all'ultimo punto della sequenza temporale."
+        }
+        "The forecast start is too early for this much history: choose a later forecast start or less history." => {
+            "L'inizio della previsione è troppo anticipato per uno storico così lungo: posticipa l'inizio della previsione o riduci lo storico."
+        }
+        "The forecast start needs at least two values before it to fit the forecast." => {
+            "L'inizio della previsione richiede almeno due valori precedenti per calcolare la previsione."
+        }
+        "The headers must remain in the same row, and the resulting table range must overlap the original table range." => {
+            "Le intestazioni devono restare nella stessa riga e il nuovo intervallo della tabella deve sovrapporsi a quello originale."
+        }
+        "The input range holds column labels in its first row and sample labels in its first column." => {
+            "La prima riga dell'intervallo di input contiene le etichette delle colonne e la prima colonna le etichette dei campioni."
+        }
+        "The input range holds no numbers." => "L'intervallo di input non contiene numeri.",
+        "The input range must hold a row of labels and at least two samples." => {
+            "L'intervallo di input deve contenere una riga di etichette e almeno due campioni."
+        }
+        "The interval must be a whole number from 1 to the number of data points." => {
+            "L'intervallo deve essere un numero intero compreso tra 1 e il numero di punti dati."
+        }
+        "The macro debugger runs on its own, not as a step of a script or macro." => {
+            "Il debugger delle macro va eseguito da solo, non come passaggio di uno script o di una macro."
+        }
+        "The model isn't linear in the variable cells, so Simplex LP can't report its sensitivity." => {
+            "Il modello non è lineare nelle celle variabili, quindi Simplex LP non può calcolarne la sensibilità."
+        }
+        "The name entered already exists. Enter a unique name." => "Il nome inserito esiste già. Inserisci un nome univoco.",
+        "The name that you entered is not valid." => "Il nome inserito non è valido.",
+        "The number must be between 1 and 409." => "Il numero deve essere compreso tra 1 e 409.",
+        "The objective cell must contain a formula." => "La cella obiettivo deve contenere una formula.",
+        "The objective must be a single cell." => "L'obiettivo deve essere una singola cella.",
+        "The p value must be between 0 and 1." => "Il valore p deve essere compreso tra 0 e 1.",
+        "The password you supplied is not correct." => "La password specificata non è corretta.",
+        "The pattern must run from a smaller number to a larger one in positive steps." => {
+            "Lo schema deve andare da un numero minore a uno maggiore con incrementi positivi."
+        }
+        "The period must be at most the number of input values." => "Il periodo non può superare il numero di valori di input.",
+        "The probabilities must be between 0 and 1 and add up to 1." => {
+            "Le probabilità devono essere comprese tra 0 e 1 e la loro somma deve essere 1."
+        }
+        "The random seed must be a whole number from 0." => "Il valore di inizializzazione deve essere un numero intero maggiore o uguale a 0.",
+        "The range doesn't hold a Solver model saved with Save Model." => "L'intervallo non contiene un modello di Solver salvato con Salva modello.",
+        "The replacements make too much text. Replace in a smaller range." => {
+            "Le sostituzioni producono troppo testo. Esegui la sostituzione in un intervallo più piccolo."
+        }
+        "The report doesn't fit on the sheet below and right of the output cell." => {
+            "Nel foglio non c'è spazio sufficiente per il report sotto e a destra della cella di output."
+        }
+        "The saved model doesn't fit below that cell." => "Sotto quella cella non c'è spazio sufficiente per il modello salvato.",
+        "The sheet is protected with a password. Unprotect it first (Review › Unprotect Sheet)." => {
+            "Il foglio è protetto da password. Rimuovi prima la protezione (Revisione › Rimuovi protezione foglio)."
+        }
+        "The standard deviation must not be negative." => "La deviazione standard non può essere negativa.",
+        "The timeline needs at least two points a constant step apart." => "La sequenza temporale richiede almeno due punti a distanza costante.",
+        "The value and probability input range must have two columns." => "L'intervallo di input valori e probabilità deve avere due colonne.",
+        "The variable cells must be a reference like B2:B4." => "Le celle variabili devono essere un riferimento come B2:B4.",
+        "The variable cells must be on the objective cell's sheet." => "Le celle variabili devono trovarsi nel foglio della cella obiettivo.",
+        "The web version is always the latest release." => "La versione web è sempre la più recente.",
+        "The weekday series runs past the supported date range." => "La serie di giorni feriali supera l'intervallo di date supportato.",
+        "The window that was closing has closed already; nothing else was closed." => {
+            "La finestra in chiusura è già stata chiusa; non è stato chiuso nient'altro."
+        }
+        "The workbook is protected and cannot be changed." => "La cartella di lavoro è protetta e non può essere modificata.",
+        "The workbook where recording started was closed, so the recording was not saved." => {
+            "La cartella di lavoro in cui è iniziata la registrazione è stata chiusa, quindi la registrazione non è stata salvata."
+        }
+        "There are no comments in this workbook." => "In questa cartella di lavoro non ci sono commenti.",
+        "There are no scenarios on this sheet." => "In questo foglio non ci sono scenari.",
+        "There are no values to forecast." => "Non ci sono valori da prevedere.",
+        "There isn't room on the sheet for the list of names." => "Non c'è spazio nel foglio per l'elenco dei nomi.",
+        "There's a problem with this formula." => "Questa formula contiene un errore.",
+        "There's no comment in this cell." => "In questa cella non c'è alcun commento.",
+        "There's no hyperlink in this cell." => "In questa cella non c'è alcun collegamento ipertestuale.",
+        "There's no room below the selection for the totals." => "Non c'è spazio sotto la selezione per i totali.",
+        "There's no room below the table for the total row." => "Non c'è spazio sotto la tabella per la riga dei totali.",
+        "There's no room to the right of the selection for the total." => "Non c'è spazio a destra della selezione per il totale.",
+        "This action won't work on multiple selections." => "Questa azione non funziona con selezioni multiple.",
+        "This operation isn't allowed: it would shift cells in a table on your worksheet." => {
+            "Operazione non consentita: sposterebbe celle di una tabella nel foglio di lavoro."
+        }
+        "This sheet has no saved Solver model." => "Questo foglio non contiene un modello di Solver salvato.",
+        "This workbook has no names to paste." => "Questa cartella di lavoro non contiene nomi da incollare.",
+        "Tiled" => "A mosaico",
+        "To do this, all the merged cells need to be the same size." => {
+            "Per eseguire questa operazione, tutte le celle unite devono avere le stesse dimensioni."
+        }
+        "To prevent possible loss of data, GridCraft cannot shift nonblank cells off of the worksheet." => {
+            "Per evitare una possibile perdita di dati, GridCraft non può spostare celle non vuote fuori dal foglio di lavoro."
+        }
+        "To prevent possible loss of data, cells can't be pushed off the end of the worksheet." => {
+            "Per evitare una possibile perdita di dati, non è possibile spostare celle oltre la fine del foglio di lavoro."
+        }
+        "To prevent possible loss of data, columns cannot be shifted off of the worksheet." => {
+            "Per evitare una possibile perdita di dati, non è possibile spostare colonne fuori dal foglio di lavoro."
+        }
+        "Too few observations for this many X variables." => "Troppo poche osservazioni per questo numero di variabili X.",
+        "Too many cells to paste as links at once." => "Troppe celle da incollare come collegamenti in una sola volta.",
+        "Too many report sheets." => "Troppi fogli di report.",
+        "Too many separate validation areas to paste at once." => "Troppe aree di convalida distinte da incollare in una sola volta.",
+        "Two-sided printing" => "Stampa fronte/retro",
+        "Two-sided: long edge" => "Fronte/retro: lato lungo",
+        "Two-sided: short edge" => "Fronte/retro: lato corto",
+        "Unhide…" => "Scopri…",
+        "Uniform" => "Uniforme",
+        "Unique rows only" => "Solo righe univoche",
+        "Unprotect Sheet…" => "Rimuovi protezione foglio…",
+        "Unprotect the sheet to change its edit ranges." => "Rimuovi la protezione del foglio per cambiarne gli intervalli modificabili.",
+        "Value and Probability Input Range:" => "Intervallo di input valori e probabilità:",
+        "Variable 1 Variance (known):" => "Varianza variabile 1 (nota):",
+        "Variable 2 Variance (known):" => "Varianza variabile 2 (nota):",
+        "Variable cells must hold constants, not formulas." => "Le celle variabili devono contenere costanti, non formule.",
+        "Version" => "Versione",
+        "We looked at all the data next to your selection and didn't see a pattern for filling in values for you." => {
+            "Sono stati esaminati tutti i dati accanto alla selezione, ma non è stato individuato uno schema con cui riempire i valori."
+        }
+        "Windows of active workbook" => "Finestre della cartella di lavoro attiva",
+        "Write a macro step by step" => "Scrivi una macro passo per passo",
+        "XLSB is supported for data import only. Save as .xlsx or another supported export format." => {
+            "Il formato XLSB è supportato solo per l'importazione dei dati. Salva come .xlsx o in un altro formato di esportazione supportato."
+        }
+        "You can't change part of an array." => "Non è possibile modificare solo una parte di una matrice.",
+        "files larger than 2 GB aren't supported" => "i file più grandi di 2 GB non sono supportati",
+        "no filter" => "nessun filtro",
+        "no such sheet" => "foglio inesistente",
+        "not found" => "nessuna corrispondenza",
+        "p Value:" => "Valore p:",
+        "the sheet's merged cells overlap too much, or cover too many cells, for a web page." => {
+            "le celle unite del foglio si sovrappongono troppo, o coprono troppe celle, per una pagina web."
+        }
+        "z-Test: Two Sample for Means" => "Test z: due campioni per medie",
+        "¥ Chinese (PRC)" => "¥ Cinese (RPC)",
+        "₩ Korean" => "₩ Coreano",
+        "₹ English (India)" => "₹ Inglese (India)",
+        "₽ Russian" => "₽ Russo",
         _ => return None,
     })
 }

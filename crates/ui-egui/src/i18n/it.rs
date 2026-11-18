@@ -1144,7 +1144,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Account" => "Account",
         "Add Step" => "Aggiungi passaggio",
         "Add a step after the selected one" => "Aggiungi un passaggio dopo quello selezionato",
-        "Advanced" => "Avanzate",
+        "Advanced" => "Avanzato",
         "Advanced Filter" => "Filtro avanzato",
         "All sheets" => "Tutti i fogli",
         "And:" => "E:",
@@ -1315,7 +1315,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Paste Names…" => "Incolla nomi…",
         "Paste formulas that refer to the copied cells" => "Incolla formule che fanno riferimento alle celle copiate",
         "Paste name" => "Incolla nome",
-        "Patterned" => "A schema",
+        "Patterned" => "A sequenza",
         "Period:" => "Periodo:",
         "Periodic" => "Periodico",
         "Pick up a format first." => "Copia prima un formato.",
@@ -1505,7 +1505,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "The p value must be between 0 and 1." => "Il valore p deve essere compreso tra 0 e 1.",
         "The password you supplied is not correct." => "La password specificata non è corretta.",
         "The pattern must run from a smaller number to a larger one in positive steps." => {
-            "Lo schema deve andare da un numero minore a uno maggiore con incrementi positivi."
+            "La sequenza deve andare da un numero minore a uno maggiore con incrementi positivi."
         }
         "The period must be at most the number of input values." => "Il periodo non può superare il numero di valori di input.",
         "The probabilities must be between 0 and 1 and add up to 1." => {

@@ -1141,12 +1141,10 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Invalid environment name character: {character}" => "Carattere non valido nel nome dell'ambiente: {character}",
         "A table can't overlap another table." => "Una tabella non può sovrapporsi a un'altra tabella.",
         "A workbook must contain at least one visible worksheet." => "Una cartella di lavoro deve contenere almeno un foglio di lavoro visibile.",
-        "Account" => "Account",
         "Add Step" => "Aggiungi passaggio",
         "Add a step after the selected one" => "Aggiungi un passaggio dopo quello selezionato",
         "Advanced" => "Avanzato",
         "Advanced Filter" => "Filtro avanzato",
-        "All sheets" => "Tutti i fogli",
         "And:" => "E:",
         "Anova needs at least two groups, each with at least one number." => {
             "L'analisi della varianza richiede almeno due gruppi, ciascuno con almeno un numero."
@@ -1162,10 +1160,6 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Arrange All" => "Disponi tutto",
         "Arrange Windows" => "Disponi finestre",
         "Assign Action" => "Assegna azione",
-        "Auto Fill Options" => "Opzioni di riempimento automatico",
-        "AutoSave: save after every change (workbooks saved to a file)" => {
-            "Salvataggio automatico: salva dopo ogni modifica (cartelle di lavoro salvate in un file)"
-        }
         "Bernoulli" => "Bernoulli",
         "Between:" => "Tra:",
         "Binomial" => "Binomiale",
@@ -1188,11 +1182,8 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Constraint cells must be on the objective cell's sheet." => "Le celle dei vincoli devono trovarsi nel foglio della cella obiettivo.",
         "Context" => "Contesto",
         "Continue" => "Continua",
-        "Convert to Number" => "Converti in numero",
-        "Copies" => "Copie",
         "Copy matching rows elsewhere" => "Copia le righe corrispondenti in un'altra posizione",
         "Copy to:" => "Copia in:",
-        "Count Numbers" => "Conteggio numeri",
         "Criteria range (optional):" => "Intervallo criteri (facoltativo):",
         "Data Table: No Legend Keys" => "Tabella dati: senza simboli della legenda",
         "Data Table: None" => "Tabella dati: nessuna",
@@ -1200,9 +1191,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Delete columns" => "Elimina colonne",
         "Delete the selected step" => "Elimina il passaggio selezionato",
         "Discrete" => "Discreta",
-        "Display options for this workbook" => "Opzioni di visualizzazione per questa cartella di lavoro",
         "Distribution:" => "Distribuzione:",
-        "Duplicate" => "Duplica",
         "Duplicate the selected step" => "Duplica il passaggio selezionato",
         "Each input range needs at least one number." => "Ogni intervallo di input deve contenere almeno un numero.",
         "Each input range needs at least two numbers." => "Ogni intervallo di input deve contenere almeno due numeri.",
@@ -1210,8 +1199,6 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
             "Ogni numero viene ripetuto, poi viene ripetuta l'intera sequenza: insieme, le due ripetizioni determinano quanti valori vengono scritti."
         }
         "Edit Equation" => "Modifica equazione",
-        "Edit Hyperlink…" => "Modifica collegamento ipertestuale…",
-        "Error checking options" => "Opzioni di controllo errori",
         "Excel 97-2003 (.xls) is supported for import only. Save as .xlsx or another supported export format." => {
             "Il formato Excel 97-2003 (.xls) è supportato solo per l'importazione. Salva come .xlsx o in un altro formato di esportazione supportato."
         }
@@ -1219,20 +1206,10 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Exporting needs a file picker, which this window doesn't have." => {
             "Per esportare serve un selettore di file, non disponibile in questa finestra."
         }
-        "Finding printers…" => "Ricerca delle stampanti…",
-        "Fit selection" => "Adatta alla selezione",
-        "Forecast start (a date or number in the history; blank: after the last point):" => {
-            "Inizio previsione (data o numero nello storico; vuoto: dopo l'ultimo punto):"
-        }
         "Form Control" => "Controllo modulo",
-        "Format Chart Area…" => "Formato area del grafico…",
         "Format Control" => "Formato controllo",
         "Fourier Analysis" => "Analisi di Fourier",
         "From:" => "Da:",
-        "Grayscale" => "Scala di grigi",
-        "Header (&L left, &C center, &R right; &P page, &N pages, &D date, &A sheet):" => {
-            "Intestazione (&L sinistra, &C centro, &R destra; &P pagina, &N numero pagine, &D data, &A foglio):"
-        }
         "Hyperlink" => "Collegamento ipertestuale",
         "In steps of:" => "Con incrementi di:",
         "Input Y range and input X range must have the same number of rows." => {
@@ -1251,7 +1228,6 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
             "Inserisci celle tagliate funziona solo su righe o colonne intere: taglia righe o colonne intere oppure usa Incolla."
         }
         "Insert Equation" => "Inserisci equazione",
-        "Insert Function…" => "Inserisci funzione…",
         "Insert an equation, or pick one from the gallery" => "Inserisci un'equazione o scegline una dalla raccolta",
         "Insert columns" => "Inserisci colonne",
         "Integer and binary constraints must be on variable cells." => "I vincoli di tipo intero e binario devono riguardare celle variabili.",
@@ -1260,7 +1236,6 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Lambda must be greater than 0 and at most 100000." => "Lambda deve essere maggiore di 0 e non superiore a 100000.",
         "Lambda:" => "Lambda:",
         "Left to right" => "Da sinistra a destra",
-        "Licence" => "Licenza",
         "List range:" => "Intervallo elenco:",
         "Load Model reads a model of the active sheet." => "Carica modello legge solo i modelli del foglio attivo.",
         "Load Model reads a model saved on the active sheet." => "Carica modello legge solo i modelli salvati nel foglio attivo.",
@@ -1270,35 +1245,19 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Look for a newer GridCraft release" => "Cerca una versione più recente di GridCraft",
         "Macro" => "Macro",
         "Macro Options" => "Opzioni macro",
-        "Maximum Change must be a number of 0 or more." => "La variazione massima deve essere un numero maggiore o uguale a 0.",
-        "Maximum Change:" => "Variazione massima:",
-        "Maximum Iterations must be a whole number from 1 to 32767." => {
-            "Il numero massimo di iterazioni deve essere un numero intero compreso tra 1 e 32767."
-        }
-        "Maximum Iterations:" => "Numero massimo di iterazioni:",
         "Mean:" => "Media:",
-        "More Functions…" => "Altre funzioni…",
         "More Table Styles" => "Altri stili tabella",
-        "Most Recently Used" => "Usate di recente",
-        "Move or Copy…" => "Sposta o copia…",
         "Multi-cell array formulas aren't allowed in tables." => "Le formule matrice su più celle non sono consentite nelle tabelle.",
         "New\nWindow" => "Nuova\nfinestra",
         "New Window" => "Nuova finestra",
         "New range for the table:" => "Nuovo intervallo per la tabella:",
-        "No Color" => "Nessun colore",
-        "No cells were found." => "Nessuna cella trovata.",
         "No dictionary is available on this system (GridCraft uses the system word list)." => {
             "Nessun dizionario disponibile nel sistema (GridCraft usa l'elenco di parole del sistema)."
         }
         "No functions match." => "Nessuna funzione corrispondente.",
         "No macro is being debugged. Start one with action: start." => "Nessuna macro in fase di debug. Avviane una con action: start.",
-        "No printers found. Configure a system printer or export a PDF." => {
-            "Nessuna stampante trovata. Configura una stampante di sistema o esporta un PDF."
-        }
         "No sheets are hidden." => "Non ci sono fogli nascosti.",
         "Nothing to import." => "Niente da importare.",
-        "Nothing to paste." => "Niente da incollare.",
-        "Number Stored as Text" => "Numero memorizzato come testo",
         "Number of Random Numbers:" => "Quantità di numeri casuali:",
         "Number of Samples:" => "Numero di campioni:",
         "Number of Variables:" => "Numero di variabili:",
@@ -1306,32 +1265,15 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "ODS is supported for data import only. Save as .xlsx or another supported export format." => {
             "Il formato ODS è supportato solo per l'importazione dei dati. Salva come .xlsx o in un altro formato di esportazione supportato."
         }
-        "One-sided" => "Solo fronte",
-        "Open Hyperlink" => "Apri collegamento ipertestuale",
-        "Or select a category:" => "Oppure seleziona una categoria:",
         "Outline Settings" => "Impostazioni struttura",
         "Paste List" => "Incolla elenco",
         "Paste Name" => "Incolla nome",
-        "Paste Names…" => "Incolla nomi…",
-        "Paste formulas that refer to the copied cells" => "Incolla formule che fanno riferimento alle celle copiate",
         "Paste name" => "Incolla nome",
         "Patterned" => "A sequenza",
         "Period:" => "Periodo:",
         "Periodic" => "Periodico",
         "Pick up a format first." => "Copia prima un formato.",
-        "Platform" => "Piattaforma",
         "Poisson" => "Poisson",
-        "Print failed: the printing worker stopped." => "Stampa non riuscita: il servizio di stampa si è interrotto.",
-        "Print failed: {error}" => "Stampa non riuscita: {error}",
-        "Print job submitted." => "Processo di stampa inviato.",
-        "Print job submitted: {receipt}" => "Processo di stampa inviato: {receipt}",
-        "Printer" => "Stampante",
-        "Printer default" => "Impostazione predefinita della stampante",
-        "Printer discovery failed." => "Ricerca delle stampanti non riuscita.",
-        "Product Information" => "Informazioni sul prodotto",
-        "Protect workbook for: Structure (sheets can't be added, moved, renamed, hidden or deleted)." => {
-            "Proteggi la cartella di lavoro per: struttura (non è possibile aggiungere, spostare, rinominare, nascondere o eliminare fogli)."
-        }
         "R$ Portuguese (Brazil)" => "R$ Portoghese (Brasile)",
         "Random" => "Casuale",
         "Random Number Generation" => "Generazione di numeri casuali",
@@ -1342,15 +1284,11 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
             "Registra i passaggi rispetto alle celle selezionate all'inizio della registrazione, così la macro funziona anche su altri dati"
         }
         "Reference isn't valid." => "Il riferimento non è valido.",
-        "Refresh printers" => "Aggiorna stampanti",
-        "Remove Hyperlink" => "Rimuovi collegamento ipertestuale",
         "Remove this parameter" => "Rimuovi questo parametro",
-        "Rename" => "Rinomina",
         "Repeating each number (times):" => "Ripeti ogni numero (volte):",
         "Repeating each sequence (times):" => "Ripeti ogni sequenza (volte):",
         "Resize\nTable" => "Ridimensiona\ntabella",
         "Resize Table" => "Ridimensiona tabella",
-        "Resize formula bar" => "Ridimensiona barra della formula",
         "Return to the original worksheet to insert this picture, or cancel and choose another cell." => {
             "Torna al foglio di lavoro originale per inserire questa immagine oppure annulla e scegli un'altra cella."
         }
@@ -1382,10 +1320,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
             "Per Salva modello ogni membro di un vincolo deve essere un unico intervallo."
         }
         "Scroll ribbon left" => "Scorri la barra multifunzione a sinistra",
-        "Select All Sheets" => "Seleziona tutti i fogli",
-        "Select Data…" => "Seleziona dati…",
         "Select a cell inside a table first, or pass `table`." => "Seleziona prima una cella all'interno di una tabella oppure specifica `table`.",
-        "Select a printer" => "Seleziona una stampante",
         "Select a timeline column and a values column for the forecast." => {
             "Seleziona una colonna della sequenza temporale e una colonna dei valori per la previsione."
         }
@@ -1394,15 +1329,11 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Select unlocked cells" => "Seleziona celle sbloccate",
         "Settings" => "Impostazioni",
         "Show Details" => "Mostra dettagli",
-        "Show horizontal scroll bar" => "Mostra barra di scorrimento orizzontale",
         "Show matching rows in place" => "Mostra le righe corrispondenti nella posizione originale",
-        "Show sheet tabs" => "Mostra schede dei fogli",
-        "Show vertical scroll bar" => "Mostra barra di scorrimento verticale",
         "Solver could not find an optimal basis for the Sensitivity report." => {
             "Solver non è riuscito a trovare una base ottimale per il report di sensibilità."
         }
         "Solver ran out of evaluations." => "Solver ha raggiunto il numero massimo di valutazioni.",
-        "Source:" => "Origine:",
         "Split tabs" => "Divisore schede",
         "Standard deviation:" => "Deviazione standard:",
         "Start debugging: stop before the first step" => "Avvia il debug: si ferma prima del primo passaggio",
@@ -1412,12 +1343,10 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         }
         "Stop debugging" => "Interrompi il debug",
         "Stop recording and save the macro" => "Interrompi la registrazione e salva la macro",
-        "Submitting print job…" => "Invio del processo di stampa…",
         "Summary columns to right of detail" => "Colonne di riepilogo a destra dei dettagli",
         "Summary rows below detail" => "Righe di riepilogo sotto i dettagli",
         "Switch\nWindows" => "Cambia\nfinestra",
         "Switch Windows" => "Cambia finestra",
-        "Tab Color" => "Colore scheda",
         "That undo group has already ended." => "Quel gruppo di annullamento è già terminato.",
         "The Evolutionary method needs a lower and an upper bound on every variable cell (constraints such as \"A1:A3 <= 10\"), or requireBounds: false." => {
             "Il metodo evolutivo richiede un limite inferiore e uno superiore per ogni cella variabile (vincoli come \"A1:A3 <= 10\"), oppure requireBounds: false."
@@ -1570,19 +1499,13 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Too many cells to paste as links at once." => "Troppe celle da incollare come collegamenti in una sola volta.",
         "Too many report sheets." => "Troppi fogli di report.",
         "Too many separate validation areas to paste at once." => "Troppe aree di convalida distinte da incollare in una sola volta.",
-        "Two-sided printing" => "Stampa fronte/retro",
-        "Two-sided: long edge" => "Fronte/retro: lato lungo",
-        "Two-sided: short edge" => "Fronte/retro: lato corto",
-        "Unhide…" => "Scopri…",
         "Uniform" => "Uniforme",
         "Unique rows only" => "Solo righe univoche",
-        "Unprotect Sheet…" => "Rimuovi protezione foglio…",
         "Unprotect the sheet to change its edit ranges." => "Rimuovi la protezione del foglio per cambiarne gli intervalli modificabili.",
         "Value and Probability Input Range:" => "Intervallo di input valori e probabilità:",
         "Variable 1 Variance (known):" => "Varianza variabile 1 (nota):",
         "Variable 2 Variance (known):" => "Varianza variabile 2 (nota):",
         "Variable cells must hold constants, not formulas." => "Le celle variabili devono contenere costanti, non formule.",
-        "Version" => "Versione",
         "We looked at all the data next to your selection and didn't see a pattern for filling in values for you." => {
             "Sono stati esaminati tutti i dati accanto alla selezione, ma non è stato individuato uno schema con cui riempire i valori."
         }
